@@ -1,4 +1,5 @@
 use scryer_prolog::{LeafAnswer, MachineBuilder, Term};
+mod prolog_types;
 
 fn main() {
     let mut machine = MachineBuilder::default().build();
@@ -16,8 +17,8 @@ fn main() {
     for answer in answers {
         match answer {
             Ok(LeafAnswer::LeafAnswer { bindings, .. }) => match bindings.get("StateOut") {
-                Some(Term::Compound(str, _args)) if str == "t" => {
-                    println!("its a t!")
+                Some(term) => {
+                    prolog_types::from_prolog(term);
                 }
                 _ => panic!("Unexpected bindings: {:?}", bindings),
             },
