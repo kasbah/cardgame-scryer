@@ -1,29 +1,11 @@
-use scryer_prolog::{LeafAnswer, MachineBuilder, Term};
-mod prolog_types;
+use cardgame::game_logic;
+use cardgame::random;
+
+pub fn make_random_move(_: game_logic::GameState, options: &Vec<game_logic::GameState>) -> usize {
+    random::random_choice(options)
+}
 
 fn main() {
-    let mut machine = MachineBuilder::default().build();
-
-    let file_content = include_str!("logic.pl");
-
-    machine.load_module_string("logic", file_content);
-
-    let query = r#"
-        init(State), random_options(State, StateOut).
-    "#;
-
-    let answers = machine.run_query(query);
-
-    for answer in answers {
-        match answer {
-            Ok(LeafAnswer::LeafAnswer { bindings, .. }) => match bindings.get("StateOut") {
-                Some(term) => {
-                    prolog_types::from_prolog(term);
-                }
-                _ => panic!("Unexpected bindings: {:?}", bindings),
-            },
-            Ok(LeafAnswer::False) => {}
-            _ => panic!("Unexpected answer: {:?}", answer),
-        }
-    }
+    let final_state = game_logic::run_game(&make_random_move, &make_random_move, None, None);
+    println!("{:?}", final_state);
 }

@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 maplit = "1.0.2"
+rand = "0.8.5"
 
 [dependencies.scryer-prolog]
 default-features = false
@@ -15,3 +16,6 @@ branch = "rework_library_interface"
 
 [dev-dependencies]
 dashu = "0.4.2"
+
+[lints.clippy]
+wildcard_enum_match_arm = "warn"
