@@ -1,17 +1,27 @@
-use scryer_prolog::Term;
+use scryer_prolog::{
+    Term,
+    Term::{Atom, Compound},
+};
 use std::collections::BTreeMap;
 
 pub fn from_prolog(term: &Term) -> BTreeMap<String, String> {
     match &term {
-        Term::Compound(str, args) if str == "t" => match (args.get(0), args.get(1)) {
-            (Some(Term::Atom(key)), Some(Term::Atom(value))) => {
+        Compound(str, args) if str == "t" => match &args[..] {
+            [Atom(key), Atom(value), rest @ ..] => {
                 let mut map = BTreeMap::new();
                 map.insert(key.to_owned(), value.to_owned());
-                map
+                match rest {
+                    [Atom(dash), Atom(t), Atom(t2)] if dash == "-" && t == "t" && t2 == "t" => map,
+                    [Atom(caret), c @ Compound(..), ..] if caret == "<" => {
+                        map.append(&mut from_prolog(c));
+                        map
+                    }
+                    _ => panic!("Unexpected rest args: {:?}", rest),
+                }
             }
             _ => panic!("Unexpected args: {:?}", args),
         },
-        Term::Atom(str) if str == "t" => BTreeMap::new(),
+        Atom(str) if str == "t" => BTreeMap::new(),
         _ => panic!("Unexpected term: {:?}", &term),
     }
 }
@@ -19,17 +29,17 @@ pub fn from_prolog(term: &Term) -> BTreeMap<String, String> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use scryer_prolog::{
-        LeafAnswer, Machine, MachineBuilder,
-        Term::{Atom, Compound},
-    };
+    use scryer_prolog::{LeafAnswer, Machine, MachineBuilder};
 
     fn query_once_binding(machine: &mut Machine, query: &str, var: &str) -> Term {
         let mut answers = machine.run_query(query);
         let answer = answers.next();
         match answer {
             Some(Ok(LeafAnswer::LeafAnswer { bindings, .. })) => match bindings.get(var) {
-                Some(x) => return x.to_owned(),
+                Some(x) => {
+                    println!("{:?}", x);
+                    return x.to_owned();
+                }
                 _ => panic!("Unexpected bindings: {:?}", bindings),
             },
             _ => panic!("Unexpected answer: {:?}", answer),
@@ -58,6 +68,36 @@ mod test {
         let map = from_prolog(&term);
         assert_eq!(map, BTreeMap::from([("a".to_string(), "b".to_string())]));
     }
+    #[test]
+    fn test_from_prolog_assoc2() {
+        let term = Compound(
+            "t".to_string(),
+            Vec::from([
+                Atom("c".to_string()),
+                Atom("d".to_string()),
+                Atom("<".to_string()),
+                Compound(
+                    "t".to_string(),
+                    Vec::from([
+                        Atom("a".to_string()),
+                        Atom("b".to_string()),
+                        Atom("-".to_string()),
+                        Atom("t".to_string()),
+                        Atom("t".to_string()),
+                    ]),
+                ),
+                Atom("t".to_string()),
+            ]),
+        );
+        let map = from_prolog(&term);
+        assert_eq!(
+            map,
+            BTreeMap::from([
+                ("a".to_string(), "b".to_string()),
+                ("c".to_string(), "d".to_string())
+            ])
+        );
+    }
 
     #[test]
     fn test_from_prolog_assoc() {
@@ -66,13 +106,16 @@ mod test {
         machine.load_module_string("test", r#":- use_module(library(assoc))."#);
 
         let query = r#"
-            list_to_assoc([a-b], X).
+            list_to_assoc([a-b, c-d], X).
         "#;
         let term = query_once_binding(&mut machine, query, "X");
         let map = from_prolog(&term);
         assert_eq!(
             map,
-            BTreeMap::from([(String::from("a"), String::from("b"))])
+            BTreeMap::from([
+                ("a".to_string(), "b".to_string()),
+                ("c".to_string(), "d".to_string())
+            ])
         );
     }
 }
