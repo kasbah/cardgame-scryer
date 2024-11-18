@@ -24,12 +24,16 @@ mod test {
         Term::{Atom, Compound},
     };
 
-    fn run_once(machine: &mut Machine, query: &str) -> Result<LeafAnswer, String> {
-        let answers = machine.run_query(query);
-        for answer in answers {
-            return answer;
+    fn query_once_binding(machine: &mut Machine, query: &str, var: &str) -> Term {
+        let mut answers = machine.run_query(query);
+        let answer = answers.next();
+        match answer {
+            Some(Ok(LeafAnswer::LeafAnswer { bindings, .. })) => match bindings.get(var) {
+                Some(x) => return x.to_owned(),
+                _ => panic!("Unexpected bindings: {:?}", bindings),
+            },
+            _ => panic!("Unexpected answer: {:?}", answer),
         }
-        panic!("No answer");
     }
 
     #[test]
@@ -55,29 +59,20 @@ mod test {
         assert_eq!(map, BTreeMap::from([("a".to_string(), "b".to_string())]));
     }
 
-    //#[test]
-    //fn test_from_prolog_assoc() {
-    //    let mut machine = MachineBuilder::default().build();
+    #[test]
+    fn test_from_prolog_assoc() {
+        let mut machine = MachineBuilder::default().build();
 
-    //    machine.load_module_string("test", r#":- use_module(library(assoc))."#);
+        machine.load_module_string("test", r#":- use_module(library(assoc))."#);
 
-    //    let query = r#"
-    //        list_to_assoc([a-b], X).
-    //    "#;
-    //    let answer = run_once(&mut machine, query);
-    //    match answer {
-    //        Ok(LeafAnswer::LeafAnswer { bindings, .. }) => match bindings.get("X") {
-    //            Some(x) => {
-    //                println!("{:?}", x);
-    //                let map = from_prolog(x);
-    //                assert_eq!(
-    //                    map,
-    //                    BTreeMap::from([(String::from("a"), String::from("b"))])
-    //                );
-    //            }
-    //            _ => panic!("Unexpected bindings: {:?}", bindings),
-    //        },
-    //        _ => panic!("Unexpected answer: {:?}", answer),
-    //    }
-    //}
+        let query = r#"
+            list_to_assoc([a-b], X).
+        "#;
+        let term = query_once_binding(&mut machine, query, "X");
+        let map = from_prolog(&term);
+        assert_eq!(
+            map,
+            BTreeMap::from([(String::from("a"), String::from("b"))])
+        );
+    }
 }
