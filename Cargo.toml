@@ -12,3 +12,6 @@ maplit = "1.0.2"
 default-features = false
 git = "https://github.com/bakaq/scryer-prolog"
 branch = "rework_library_interface"
+
+[dev-dependencies]
+dashu = "0.4.2"

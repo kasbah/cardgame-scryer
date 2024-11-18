@@ -4,32 +4,44 @@ use scryer_prolog::{
 };
 use std::collections::BTreeMap;
 
-pub fn from_prolog_assoc(term: &Term) -> BTreeMap<String, String> {
+#[derive(Debug, Clone, PartialEq)]
+pub enum TermOrAssoc {
+    Term(Term),
+    Assoc(BTreeMap<String, TermOrAssoc>),
+}
+
+pub fn from_prolog_assoc(term: &Term) -> TermOrAssoc {
     match &term {
         Compound(str, args) if str == "t" => match &args[..] {
-            [Atom(key), Atom(value), rest @ ..] => {
+            [Atom(key), value, rest @ ..] => {
                 let mut map = BTreeMap::new();
-                map.insert(key.to_owned(), value.to_owned());
+                let v = from_prolog_assoc(value);
+                map.insert(key.clone(), v);
                 match rest {
                     [Atom(s), terms @ ..] if s == "<" || s == "-" => {
                         for term in terms {
-                            map.append(&mut from_prolog_assoc(term));
+                            let mut result = from_prolog_assoc(term);
+                            match &mut result {
+                                TermOrAssoc::Assoc(m) => map.append(m),
+                                _ => panic!("Unexpected from_prolog_assoc result: {:?}", result),
+                            }
                         }
-                        map
+                        TermOrAssoc::Assoc(map)
                     }
                     _ => panic!("Unexpected rest args: {:?}", rest),
                 }
             }
             _ => panic!("Unexpected args: {:?}", args),
         },
-        Atom(str) if str == "t" => BTreeMap::new(),
-        _ => panic!("Unexpected term: {:?}", &term),
+        Atom(str) if str == "t" => TermOrAssoc::Assoc(BTreeMap::new()),
+        _ => TermOrAssoc::Term(term.clone()),
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+    use dashu::Integer;
     use scryer_prolog::{LeafAnswer, Machine, MachineBuilder};
 
     fn query_once_binding(machine: &mut Machine, query: &str, var: &str) -> Term {
@@ -50,8 +62,8 @@ mod test {
     #[test]
     fn test_from_prolog_empty_assoc() {
         let term = Atom("t".to_string());
-        let map = from_prolog_assoc(&term);
-        assert_eq!(map, BTreeMap::new());
+        let result = from_prolog_assoc(&term);
+        assert_eq!(result, TermOrAssoc::Assoc(BTreeMap::new()));
     }
 
     #[test]
@@ -66,9 +78,16 @@ mod test {
                 Atom("t".to_string()),
             ]),
         );
-        let map = from_prolog_assoc(&term);
-        assert_eq!(map, BTreeMap::from([("a".to_string(), "b".to_string())]));
+        let result = from_prolog_assoc(&term);
+        assert_eq!(
+            result,
+            TermOrAssoc::Assoc(BTreeMap::from([(
+                "a".to_string(),
+                TermOrAssoc::Term(Atom("b".to_string()))
+            )]))
+        );
     }
+
     #[test]
     fn test_from_prolog_assoc2() {
         let term = Compound(
@@ -90,13 +109,13 @@ mod test {
                 Atom("t".to_string()),
             ]),
         );
-        let map = from_prolog_assoc(&term);
+        let result = from_prolog_assoc(&term);
         assert_eq!(
-            map,
-            BTreeMap::from([
-                ("a".to_string(), "b".to_string()),
-                ("c".to_string(), "d".to_string())
-            ])
+            result,
+            TermOrAssoc::Assoc(BTreeMap::from([
+                ("a".to_string(), TermOrAssoc::Term(Atom("b".to_string()))),
+                ("c".to_string(), TermOrAssoc::Term(Atom("d".to_string())))
+            ]))
         );
     }
 
@@ -130,14 +149,14 @@ mod test {
                 ),
             ]),
         );
-        let map = from_prolog_assoc(&term);
+        let result = from_prolog_assoc(&term);
         assert_eq!(
-            map,
-            BTreeMap::from([
-                ("a".to_string(), "b".to_string()),
-                ("c".to_string(), "d".to_string()),
-                ("e".to_string(), "f".to_string())
-            ])
+            result,
+            TermOrAssoc::Assoc(BTreeMap::from([
+                ("a".to_string(), TermOrAssoc::Term(Atom("b".to_string()))),
+                ("c".to_string(), TermOrAssoc::Term(Atom("d".to_string()))),
+                ("e".to_string(), TermOrAssoc::Term(Atom("f".to_string())))
+            ]))
         );
     }
 
@@ -151,16 +170,38 @@ mod test {
             list_to_assoc([a-b, c-d, e-f, h-i, j-k], X).
         "#;
         let term = query_once_binding(&mut machine, query, "X");
-        let map = from_prolog_assoc(&term);
+        let result = from_prolog_assoc(&term);
         assert_eq!(
-            map,
-            BTreeMap::from([
-                ("a".to_string(), "b".to_string()),
-                ("c".to_string(), "d".to_string()),
-                ("e".to_string(), "f".to_string()),
-                ("h".to_string(), "i".to_string()),
-                ("j".to_string(), "k".to_string())
-            ])
+            result,
+            TermOrAssoc::Assoc(BTreeMap::from([
+                ("a".to_string(), TermOrAssoc::Term(Atom("b".to_string()))),
+                ("c".to_string(), TermOrAssoc::Term(Atom("d".to_string()))),
+                ("e".to_string(), TermOrAssoc::Term(Atom("f".to_string()))),
+                ("h".to_string(), TermOrAssoc::Term(Atom("i".to_string()))),
+                ("j".to_string(), TermOrAssoc::Term(Atom("k".to_string())))
+            ]))
+        );
+    }
+
+    #[test]
+    fn test_from_prolog_assoc_int() {
+        let term = Compound(
+            "t".to_string(),
+            Vec::from([
+                Atom("a".to_string()),
+                Term::Integer(Integer::from(1)),
+                Atom("-".to_string()),
+                Atom("t".to_string()),
+                Atom("t".to_string()),
+            ]),
+        );
+        let result = from_prolog_assoc(&term);
+        assert_eq!(
+            result,
+            TermOrAssoc::Assoc(BTreeMap::from([(
+                "a".to_string(),
+                TermOrAssoc::Term(Term::Integer(Integer::from(1)))
+            )]))
         );
     }
 }
