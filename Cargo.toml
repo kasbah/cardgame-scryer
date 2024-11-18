@@ -7,4 +7,8 @@ edition = "2021"
 
 [dependencies]
 maplit = "1.0.2"
-scryer-prolog = { git = "https://github.com/bakaq/scryer-prolog", branch = "rework_library_interface"}
+
+[dependencies.scryer-prolog]
+default-features = false
+git = "https://github.com/bakaq/scryer-prolog"
+branch = "rework_library_interface"
