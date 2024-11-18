@@ -28,6 +28,45 @@ pub fn from_prolog_assoc(term: &Term) -> BTreeMap<String, Term> {
     }
 }
 
+pub fn to_prolog(term: &Term) -> String {
+    match term {
+        Term::Integer(int) => int.to_string(),
+        Term::Rational(rat) => rat.to_string(),
+        Term::Float(float) => float.to_string(),
+        Term::Atom(str) => str.clone(),
+        Term::String(str) => format!("\"{}\"", str),
+        Term::List(terms) => format!(
+            "[{}]",
+            &terms
+                .iter()
+                .map(to_prolog)
+                .collect::<Vec<String>>()
+                .join(", ")
+        ),
+        Term::Compound(name, args) => format!(
+            "{}({})",
+            name,
+            &args
+                .iter()
+                .map(to_prolog)
+                .collect::<Vec<String>>()
+                .join(", ")
+        ),
+        Term::Var(var) => var.to_string(),
+        _ => panic!("Unexpected term: {:?}", term),
+    }
+}
+
+pub fn to_prolog_assoc(map: &BTreeMap<String, Term>, var: &str) -> String {
+    let pairs = map
+        .iter()
+        .map(|(key, value)| format!("{}-{}", key, to_prolog(value)))
+        .collect::<Vec<String>>()
+        .join(", ");
+    let result = format!("list_to_assoc([{}], {})", pairs, var);
+    result
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum TermOrAssoc {
     Term(Term),
@@ -83,6 +122,71 @@ mod test {
             },
             _ => panic!("Unexpected answer: {:?}", answer),
         }
+    }
+
+    #[test]
+    fn test_to_prolog1() {
+        let term = Atom("hello".to_string());
+        let result = to_prolog(&term);
+        assert_eq!(result, "hello");
+    }
+
+    #[test]
+    fn test_to_prolog2() {
+        let term = Compound(
+            "a".to_string(),
+            vec![Atom("b".to_string()), Atom("c".to_string())],
+        );
+        let result = to_prolog(&term);
+        assert_eq!(result, "a(b, c)");
+    }
+
+    #[test]
+    fn test_to_prolog_int() {
+        let term = Term::Integer(Integer::from(42));
+        let result = to_prolog(&term);
+        assert_eq!(result, "42");
+    }
+
+    #[test]
+    fn test_to_prolog_var() {
+        let term = Term::Var("X".to_string());
+        let result = to_prolog(&term);
+        assert_eq!(result, "X");
+    }
+
+    #[test]
+    fn test_to_prolog_list() {
+        let term = Term::List(vec![
+            Term::Atom("a".to_string()),
+            Term::Atom("b".to_string()),
+        ]);
+        let result = to_prolog(&term);
+        assert_eq!(result, "[a, b]");
+    }
+
+    #[test]
+    fn test_to_prolog_assoc1() {
+        let map = BTreeMap::from([("a".to_string(), Atom("b".to_string()))]);
+        let result = to_prolog_assoc(&map, "X");
+        assert_eq!(result, "list_to_assoc([a-b], X)");
+    }
+
+    #[test]
+    fn test_to_prolog_assoc2() {
+        let map = BTreeMap::from([
+            ("foo".to_string(), Atom("bar".to_string())),
+            ("hello".to_string(), Term::Integer(42.into())),
+            (
+                "list".to_string(),
+                Term::List(vec![Atom("a".to_string()), Atom("b".to_string())]),
+            ),
+        ]);
+        let result = to_prolog_assoc(&map, "MyVar");
+        assert_eq!(
+            result,
+            "list_to_assoc([foo-bar, hello-42, list-[a, b]], MyVar)"
+        );
     }
 
     #[test]
