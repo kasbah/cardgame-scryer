@@ -50,7 +50,6 @@ mod test {
         match answer {
             Some(Ok(LeafAnswer::LeafAnswer { bindings, .. })) => match bindings.get(var) {
                 Some(x) => {
-                    println!("{:?}", x);
                     return x.to_owned();
                 }
                 _ => panic!("Unexpected bindings: {:?}", bindings),
@@ -161,29 +160,6 @@ mod test {
     }
 
     #[test]
-    fn test_from_prolog_assoc() {
-        let mut machine = MachineBuilder::default().build();
-
-        machine.load_module_string("test", r#":- use_module(library(assoc))."#);
-
-        let query = r#"
-            list_to_assoc([a-b, c-d, e-f, h-i, j-k], X).
-        "#;
-        let term = query_once_binding(&mut machine, query, "X");
-        let result = from_prolog_assoc(&term);
-        assert_eq!(
-            result,
-            TermOrAssoc::Assoc(BTreeMap::from([
-                ("a".to_string(), TermOrAssoc::Term(Atom("b".to_string()))),
-                ("c".to_string(), TermOrAssoc::Term(Atom("d".to_string()))),
-                ("e".to_string(), TermOrAssoc::Term(Atom("f".to_string()))),
-                ("h".to_string(), TermOrAssoc::Term(Atom("i".to_string()))),
-                ("j".to_string(), TermOrAssoc::Term(Atom("k".to_string())))
-            ]))
-        );
-    }
-
-    #[test]
     fn test_from_prolog_assoc_int() {
         let term = Compound(
             "t".to_string(),
@@ -202,6 +178,44 @@ mod test {
                 "a".to_string(),
                 TermOrAssoc::Term(Term::Integer(Integer::from(1)))
             )]))
+        );
+    }
+
+    #[test]
+    fn test_from_prolog_assoc_machine() {
+        let mut machine = MachineBuilder::default().build();
+
+        machine.load_module_string("test", r#":- use_module(library(assoc))."#);
+
+        let query = r#"
+            list_to_assoc([a-b, c-[d(x), e(x)], f-1, g-(h-i), j-k], X).
+        "#;
+        let term = query_once_binding(&mut machine, query, "X");
+        let result = from_prolog_assoc(&term);
+        assert_eq!(
+            result,
+            TermOrAssoc::Assoc(BTreeMap::from([
+                ("a".to_string(), TermOrAssoc::Term(Atom("b".to_string()))),
+                (
+                    "c".to_string(),
+                    TermOrAssoc::Term(Term::List(vec![
+                        Compound("d".to_string(), vec![Atom("x".to_string())]),
+                        Compound("e".to_string(), vec![Atom("x".to_string())])
+                    ]))
+                ),
+                (
+                    "f".to_string(),
+                    TermOrAssoc::Term(Term::Integer(Integer::from(1)))
+                ),
+                (
+                    "g".to_string(),
+                    TermOrAssoc::Term(Compound(
+                        "-".to_string(),
+                        vec![Atom("h".to_string()), Atom("i".to_string())]
+                    ))
+                ),
+                ("j".to_string(), TermOrAssoc::Term(Atom("k".to_string())))
+            ]))
         );
     }
 }
