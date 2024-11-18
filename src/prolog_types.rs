@@ -4,16 +4,17 @@ use scryer_prolog::{
 };
 use std::collections::BTreeMap;
 
-pub fn from_prolog(term: &Term) -> BTreeMap<String, String> {
+pub fn from_prolog_assoc(term: &Term) -> BTreeMap<String, String> {
     match &term {
         Compound(str, args) if str == "t" => match &args[..] {
             [Atom(key), Atom(value), rest @ ..] => {
                 let mut map = BTreeMap::new();
                 map.insert(key.to_owned(), value.to_owned());
                 match rest {
-                    [Atom(dash), Atom(t), Atom(t2)] if dash == "-" && t == "t" && t2 == "t" => map,
-                    [Atom(caret), c @ Compound(..), ..] if caret == "<" => {
-                        map.append(&mut from_prolog(c));
+                    [Atom(s), terms @ ..] if s == "<" || s == "-" => {
+                        for term in terms {
+                            map.append(&mut from_prolog_assoc(term));
+                        }
                         map
                     }
                     _ => panic!("Unexpected rest args: {:?}", rest),
@@ -49,7 +50,7 @@ mod test {
     #[test]
     fn test_from_prolog_empty_assoc() {
         let term = Atom("t".to_string());
-        let map = from_prolog(&term);
+        let map = from_prolog_assoc(&term);
         assert_eq!(map, BTreeMap::new());
     }
 
@@ -65,7 +66,7 @@ mod test {
                 Atom("t".to_string()),
             ]),
         );
-        let map = from_prolog(&term);
+        let map = from_prolog_assoc(&term);
         assert_eq!(map, BTreeMap::from([("a".to_string(), "b".to_string())]));
     }
     #[test]
@@ -89,12 +90,53 @@ mod test {
                 Atom("t".to_string()),
             ]),
         );
-        let map = from_prolog(&term);
+        let map = from_prolog_assoc(&term);
         assert_eq!(
             map,
             BTreeMap::from([
                 ("a".to_string(), "b".to_string()),
                 ("c".to_string(), "d".to_string())
+            ])
+        );
+    }
+
+    #[test]
+    fn test_from_prolog_assoc3() {
+        let term = Compound(
+            "t".to_string(),
+            Vec::from([
+                Atom("c".to_string()),
+                Atom("d".to_string()),
+                Atom("-".to_string()),
+                Compound(
+                    "t".to_string(),
+                    Vec::from([
+                        Atom("a".to_string()),
+                        Atom("b".to_string()),
+                        Atom("-".to_string()),
+                        Atom("t".to_string()),
+                        Atom("t".to_string()),
+                    ]),
+                ),
+                Compound(
+                    "t".to_string(),
+                    Vec::from([
+                        Atom("e".to_string()),
+                        Atom("f".to_string()),
+                        Atom("-".to_string()),
+                        Atom("t".to_string()),
+                        Atom("t".to_string()),
+                    ]),
+                ),
+            ]),
+        );
+        let map = from_prolog_assoc(&term);
+        assert_eq!(
+            map,
+            BTreeMap::from([
+                ("a".to_string(), "b".to_string()),
+                ("c".to_string(), "d".to_string()),
+                ("e".to_string(), "f".to_string())
             ])
         );
     }
@@ -106,15 +148,18 @@ mod test {
         machine.load_module_string("test", r#":- use_module(library(assoc))."#);
 
         let query = r#"
-            list_to_assoc([a-b, c-d], X).
+            list_to_assoc([a-b, c-d, e-f, h-i, j-k], X).
         "#;
         let term = query_once_binding(&mut machine, query, "X");
-        let map = from_prolog(&term);
+        let map = from_prolog_assoc(&term);
         assert_eq!(
             map,
             BTreeMap::from([
                 ("a".to_string(), "b".to_string()),
-                ("c".to_string(), "d".to_string())
+                ("c".to_string(), "d".to_string()),
+                ("e".to_string(), "f".to_string()),
+                ("h".to_string(), "i".to_string()),
+                ("j".to_string(), "k".to_string())
             ])
         );
     }
