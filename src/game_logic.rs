@@ -59,10 +59,7 @@ fn resolve_next(machine: &mut Machine, state: GameState) -> GameState {
     let state_in = to_prolog_assoc(&state, "StateIn");
     let query = format!("{}, once(next(StateIn, StateOut)).", state_in);
     let answer = query_once_binding(machine, &query, "StateOut");
-    match answer {
-        Some(term) => from_prolog_assoc(&term),
-        None => panic!("Could not resolve next state"),
-    }
+    answer.map(|term| from_prolog_assoc(&term)).unwrap_or(state)
 }
 
 fn get_visible(machine: &mut Machine, state: &GameState, player: &str) -> GameState {
@@ -110,8 +107,6 @@ pub fn run_game_with_machine(
 
     let finished = Term::Atom("finished".to_string());
 
-    println!("{:?}", state);
-
     let mut steps = 0;
     while state
         .get("game_phase")
@@ -121,21 +116,21 @@ pub fn run_game_with_machine(
     {
         state = resolve_randomness(machine, state);
 
-        println!("{:?}", state);
-
         state = resolve_next(machine, state);
-
-        println!("{:?}", state);
 
         let player1_visible = get_visible(machine, &state, "player1");
         let player1_options = get_player_options(machine, &state, "player1");
-        let player1_choice = resolve_player1(player1_visible, &player1_options);
-        state.extend(player1_options[player1_choice].clone());
+        if !player1_options.is_empty() {
+            let player1_choice = resolve_player1(player1_visible, &player1_options);
+            state.extend(player1_options[player1_choice].clone());
+        }
 
         let player2_visible = get_visible(machine, &state, "player2");
         let player2_options = get_player_options(machine, &state, "player2");
-        let player2_choice = resolve_player2(player2_visible, &player2_options);
-        state.extend(player2_options[player2_choice].clone());
+        if !player2_options.is_empty() {
+            let player2_choice = resolve_player2(player2_visible, &player2_options);
+            state.extend(player2_options[player2_choice].clone());
+        }
 
         steps += 1;
     }
