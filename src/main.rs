@@ -1,11 +1,11 @@
-use cardgame::game_logic;
-use cardgame::random;
+use cardgame::game_logic::{run_game, GameState};
+use cardgame::random::random_choice;
 
-pub fn make_random_move(_: game_logic::GameState, options: &Vec<game_logic::GameState>) -> usize {
-    random::random_choice(options)
+pub fn make_random_move(_: &GameState, options: &Vec<GameState>) -> usize {
+    random_choice(options)
 }
 
 fn main() {
-    let final_state = game_logic::run_game(&make_random_move, &make_random_move, None, Some(100));
+    let final_state = run_game(&make_random_move, &make_random_move, None, Some(100));
     println!("{:?}", final_state);
 }

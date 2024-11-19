@@ -6,8 +6,8 @@ use std::collections::BTreeMap;
 pub type GameState = BTreeMap<String, Term>;
 
 pub fn run_game(
-    resolve_player1: impl Fn(GameState, &Vec<GameState>) -> usize,
-    resolve_player2: impl Fn(GameState, &Vec<GameState>) -> usize,
+    resolve_player1: impl Fn(&GameState, &Vec<GameState>) -> usize,
+    resolve_player2: impl Fn(&GameState, &Vec<GameState>) -> usize,
     initial_state: Option<GameState>,
     max_steps: Option<usize>,
 ) -> GameState {
@@ -22,6 +22,50 @@ pub fn run_game(
         initial_state,
         max_steps,
     )
+}
+
+pub fn run_game_with_machine(
+    machine: &mut Machine,
+    resolve_player1: impl Fn(&GameState, &Vec<GameState>) -> usize,
+    resolve_player2: impl Fn(&GameState, &Vec<GameState>) -> usize,
+    initial_state: Option<GameState>,
+    max_steps: Option<usize>,
+) -> GameState {
+    let mut state = match initial_state {
+        Some(s) => s,
+        None => get_initial_state(machine),
+    };
+
+    let finished = Term::Atom("finished".to_string());
+
+    let mut steps = 0;
+    while state
+        .get("game_phase")
+        .map(|t| t != &finished)
+        .expect("Missing game_phase")
+        && steps <= max_steps.unwrap_or(usize::MAX)
+    {
+        state = resolve_randomness(machine, state);
+
+        state = resolve_next(machine, state);
+
+        let player1_visible = get_visible(machine, &state, "player1");
+        let player1_options = get_player_options(machine, &state, "player1");
+        if !player1_options.is_empty() {
+            let player1_choice = resolve_player1(&player1_visible, &player1_options);
+            state.extend(player1_options[player1_choice].clone());
+        }
+
+        let player2_visible = get_visible(machine, &state, "player2");
+        let player2_options = get_player_options(machine, &state, "player2");
+        if !player2_options.is_empty() {
+            let player2_choice = resolve_player2(&player2_visible, &player2_options);
+            state.extend(player2_options[player2_choice].clone());
+        }
+
+        steps += 1;
+    }
+    state
 }
 
 fn get_initial_state(machine: &mut Machine) -> GameState {
@@ -87,49 +131,6 @@ fn get_player_options(machine: &mut Machine, state: &GameState, player: &str) ->
         .collect()
 }
 
-pub fn run_game_with_machine(
-    machine: &mut Machine,
-    resolve_player1: impl Fn(GameState, &Vec<GameState>) -> usize,
-    resolve_player2: impl Fn(GameState, &Vec<GameState>) -> usize,
-    initial_state: Option<GameState>,
-    max_steps: Option<usize>,
-) -> GameState {
-    let mut state = match initial_state {
-        Some(s) => s,
-        None => get_initial_state(machine),
-    };
-
-    let finished = Term::Atom("finished".to_string());
-
-    let mut steps = 0;
-    while state
-        .get("game_phase")
-        .map(|t| t != &finished)
-        .expect("Missing game_phase")
-        && steps <= max_steps.unwrap_or(usize::MAX)
-    {
-        state = resolve_randomness(machine, state);
-
-        state = resolve_next(machine, state);
-
-        let player1_visible = get_visible(machine, &state, "player1");
-        let player1_options = get_player_options(machine, &state, "player1");
-        if !player1_options.is_empty() {
-            let player1_choice = resolve_player1(player1_visible, &player1_options);
-            state.extend(player1_options[player1_choice].clone());
-        }
-
-        let player2_visible = get_visible(machine, &state, "player2");
-        let player2_options = get_player_options(machine, &state, "player2");
-        if !player2_options.is_empty() {
-            let player2_choice = resolve_player2(player2_visible, &player2_options);
-            state.extend(player2_options[player2_choice].clone());
-        }
-
-        steps += 1;
-    }
-    state
-}
 
 fn query_once_binding(machine: &mut Machine, query: &str, var: &str) -> Option<Term> {
     let mut answers = machine.run_query(query);
