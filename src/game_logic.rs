@@ -35,7 +35,7 @@ fn get_initial_state(machine: &mut Machine) -> GameState {
 
 fn resolve_randomness(machine: &mut Machine, state: GameState) -> GameState {
     let state_in = to_prolog_assoc(&state, "StateIn");
-    let query = format!("{}, random_options(StateIn, StateOut).", state_in);
+    let query = format!(r#"{state_in}, random_options(StateIn, StateOut)."#);
 
     let answers: Vec<Term> = machine
         .run_query(&query)
@@ -57,17 +57,14 @@ fn resolve_randomness(machine: &mut Machine, state: GameState) -> GameState {
 
 fn resolve_next(machine: &mut Machine, state: GameState) -> GameState {
     let state_in = to_prolog_assoc(&state, "StateIn");
-    let query = format!("{}, once(next(StateIn, StateOut)).", state_in);
+    let query = format!(r#"{state_in}, once(next(StateIn, StateOut))."#);
     let answer = query_once_binding(machine, &query, "StateOut");
     answer.map(|term| from_prolog_assoc(&term)).unwrap_or(state)
 }
 
 fn get_visible(machine: &mut Machine, state: &GameState, player: &str) -> GameState {
     let state_in = to_prolog_assoc(state, "StateIn");
-    let query = format!(
-        "{}, once(sees({}, StateIn, VisibleState)).",
-        state_in, player
-    );
+    let query = format!(r#"{state_in}, once(sees({player}, StateIn, VisibleState))."#);
     let answer = query_once_binding(machine, &query, "VisibleState");
     match answer {
         Some(term) => from_prolog_assoc(&term),
@@ -77,10 +74,7 @@ fn get_visible(machine: &mut Machine, state: &GameState, player: &str) -> GameSt
 
 fn get_player_options(machine: &mut Machine, state: &GameState, player: &str) -> Vec<GameState> {
     let state_in = to_prolog_assoc(state, "StateIn");
-    let query = format!(
-        "{}, player_options({}, StateIn, PartialStateOut).",
-        state_in, player
-    );
+    let query = format!(r#"{state_in}, player_options({player}, StateIn, PartialStateOut)."#,);
 
     machine
         .run_query(&query)

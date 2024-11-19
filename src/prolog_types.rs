@@ -34,7 +34,7 @@ pub fn to_prolog(term: &Term) -> String {
         Term::Rational(rat) => rat.to_string(),
         Term::Float(float) => float.to_string(),
         Term::Atom(str) => str.clone(),
-        Term::String(str) => format!("\"{}\"", str),
+        Term::String(str) => format!(r#""{str}""#),
         Term::List(terms) => format!(
             "[{}]",
             &terms
@@ -60,10 +60,10 @@ pub fn to_prolog(term: &Term) -> String {
 pub fn to_prolog_assoc(map: &BTreeMap<String, Term>, var: &str) -> String {
     let pairs = map
         .iter()
-        .map(|(key, value)| format!("{}-{}", key, to_prolog(value)))
+        .map(|(key, value)| format!("{key}-{}", to_prolog(value)))
         .collect::<Vec<String>>()
         .join(", ");
-    let result = format!("list_to_assoc([{}], {})", pairs, var);
+    let result = format!("list_to_assoc([{pairs}], {var})");
     result
 }
 

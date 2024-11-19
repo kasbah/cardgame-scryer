@@ -7,5 +7,5 @@ pub fn make_random_move(_: game_logic::GameState, options: &Vec<game_logic::Game
 
 fn main() {
     let final_state = game_logic::run_game(&make_random_move, &make_random_move, None, Some(100));
-    println!("\n{:?}", final_state);
+    println!("{:?}", final_state);
 }
