@@ -53,14 +53,14 @@ pub fn run_game_with_machine(
         let player1_options = get_player_options(machine, &state, "player1");
         if !player1_options.is_empty() {
             let player1_choice = resolve_player1(&player1_visible, &player1_options);
-            state.extend(player1_options[player1_choice].clone());
+            state.append(&mut player1_options[player1_choice].to_owned());
         }
 
         let player2_visible = get_visible(machine, &state, "player2");
         let player2_options = get_player_options(machine, &state, "player2");
         if !player2_options.is_empty() {
             let player2_choice = resolve_player2(&player2_visible, &player2_options);
-            state.extend(player2_options[player2_choice].clone());
+            state.append(&mut player2_options[player2_choice].to_owned());
         }
 
         steps += 1;
