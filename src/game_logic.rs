@@ -86,7 +86,7 @@ fn resolve_randomness(scryer: &mut ScryerMachine, state: GameState) -> GameState
         .run_query(&query)
         .filter_map(|answer| match answer {
             Ok(LeafAnswer::LeafAnswer { bindings, .. }) => {
-                bindings.get("StateOut").map(|x| x.clone())
+                bindings.get("StateOut").cloned()
             }
             _ => None,
         })
@@ -130,7 +130,7 @@ fn get_player_options(
         .filter_map(|answer| match answer {
             Ok(LeafAnswer::LeafAnswer { bindings, .. }) => bindings
                 .get("PartialStateOut")
-                .map(|term| from_prolog_assoc(term)),
+                .map(from_prolog_assoc),
             _ => None,
         })
         .collect()
