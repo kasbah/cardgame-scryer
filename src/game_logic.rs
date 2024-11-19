@@ -1,6 +1,7 @@
-use crate::prolog_types::{from_prolog_assoc, to_prolog_assoc};
+use crate::scryer_types::{from_prolog_assoc, to_prolog_assoc};
 use crate::random::random_choice;
-use scryer_prolog::{LeafAnswer, Machine, MachineBuilder, Term};
+use crate::scryer_util::query_once_binding;
+use scryer_prolog::{LeafAnswer, Machine as ScryerMachine, MachineBuilder, Term};
 use std::collections::BTreeMap;
 
 pub type GameState = BTreeMap<String, Term>;
@@ -11,12 +12,12 @@ pub fn run_game(
     initial_state: Option<GameState>,
     max_steps: Option<usize>,
 ) -> GameState {
-    let mut machine = MachineBuilder::default().build();
+    let mut scryer = MachineBuilder::default().build();
     let file_content = include_str!("logic.pl");
-    machine.load_module_string("logic", file_content);
+    scryer.load_module_string("logic", file_content);
 
     run_game_with_machine(
-        &mut machine,
+        &mut scryer,
         resolve_player1,
         resolve_player2,
         initial_state,
@@ -25,7 +26,7 @@ pub fn run_game(
 }
 
 pub fn run_game_with_machine(
-    machine: &mut Machine,
+    scryer: &mut ScryerMachine,
     resolve_player1: impl Fn(&GameState, &Vec<GameState>) -> usize,
     resolve_player2: impl Fn(&GameState, &Vec<GameState>) -> usize,
     initial_state: Option<GameState>,
@@ -33,7 +34,7 @@ pub fn run_game_with_machine(
 ) -> GameState {
     let mut state = match initial_state {
         Some(s) => s,
-        None => get_initial_state(machine),
+        None => get_initial_state(scryer),
     };
 
     let finished = Term::Atom("finished".to_string());
@@ -45,22 +46,22 @@ pub fn run_game_with_machine(
         .expect("Missing game_phase")
         && steps <= max_steps.unwrap_or(usize::MAX)
     {
-        state = resolve_randomness(machine, state);
+        state = resolve_randomness(scryer, state);
 
-        state = resolve_next(machine, state);
+        state = resolve_next(scryer, state);
 
-        let player1_visible = get_visible(machine, &state, "player1");
-        let player1_options = get_player_options(machine, &state, "player1");
+        let player1_visible = get_visible(scryer, &state, "player1");
+        let mut player1_options = get_player_options(scryer, &state, "player1");
         if !player1_options.is_empty() {
             let player1_choice = resolve_player1(&player1_visible, &player1_options);
-            state.append(&mut player1_options[player1_choice].to_owned());
+            state.append(&mut player1_options[player1_choice]);
         }
 
-        let player2_visible = get_visible(machine, &state, "player2");
-        let player2_options = get_player_options(machine, &state, "player2");
+        let player2_visible = get_visible(scryer, &state, "player2");
+        let mut player2_options = get_player_options(scryer, &state, "player2");
         if !player2_options.is_empty() {
             let player2_choice = resolve_player2(&player2_visible, &player2_options);
-            state.append(&mut player2_options[player2_choice].to_owned());
+            state.append(&mut player2_options[player2_choice]);
         }
 
         steps += 1;
@@ -68,24 +69,24 @@ pub fn run_game_with_machine(
     state
 }
 
-fn get_initial_state(machine: &mut Machine) -> GameState {
+fn get_initial_state(scryer: &mut ScryerMachine) -> GameState {
     let query = r#"init(State)."#;
-    let answer = query_once_binding(machine, query, "State");
+    let answer = query_once_binding(scryer, query, "State");
     match answer {
         Some(term) => from_prolog_assoc(&term),
         None => panic!("Could not get initial state"),
     }
 }
 
-fn resolve_randomness(machine: &mut Machine, state: GameState) -> GameState {
+fn resolve_randomness(scryer: &mut ScryerMachine, state: GameState) -> GameState {
     let state_in = to_prolog_assoc(&state, "StateIn");
     let query = format!(r#"{state_in}, random_options(StateIn, StateOut)."#);
 
-    let answers: Vec<Term> = machine
+    let answers: Vec<Term> = scryer
         .run_query(&query)
         .filter_map(|answer| match answer {
             Ok(LeafAnswer::LeafAnswer { bindings, .. }) => {
-                bindings.get("StateOut").map(|x| x.to_owned())
+                bindings.get("StateOut").map(|x| x.clone())
             }
             _ => None,
         })
@@ -99,28 +100,32 @@ fn resolve_randomness(machine: &mut Machine, state: GameState) -> GameState {
     from_prolog_assoc(&answers[i])
 }
 
-fn resolve_next(machine: &mut Machine, state: GameState) -> GameState {
+fn resolve_next(scryer: &mut ScryerMachine, state: GameState) -> GameState {
     let state_in = to_prolog_assoc(&state, "StateIn");
     let query = format!(r#"{state_in}, once(next(StateIn, StateOut))."#);
-    let answer = query_once_binding(machine, &query, "StateOut");
+    let answer = query_once_binding(scryer, &query, "StateOut");
     answer.map(|term| from_prolog_assoc(&term)).unwrap_or(state)
 }
 
-fn get_visible(machine: &mut Machine, state: &GameState, player: &str) -> GameState {
+fn get_visible(scryer: &mut ScryerMachine, state: &GameState, player: &str) -> GameState {
     let state_in = to_prolog_assoc(state, "StateIn");
     let query = format!(r#"{state_in}, once(sees({player}, StateIn, VisibleState))."#);
-    let answer = query_once_binding(machine, &query, "VisibleState");
+    let answer = query_once_binding(scryer, &query, "VisibleState");
     match answer {
         Some(term) => from_prolog_assoc(&term),
         None => BTreeMap::new(),
     }
 }
 
-fn get_player_options(machine: &mut Machine, state: &GameState, player: &str) -> Vec<GameState> {
+fn get_player_options(
+    scryer: &mut ScryerMachine,
+    state: &GameState,
+    player: &str,
+) -> Vec<GameState> {
     let state_in = to_prolog_assoc(state, "StateIn");
     let query = format!(r#"{state_in}, player_options({player}, StateIn, PartialStateOut)."#,);
 
-    machine
+    scryer
         .run_query(&query)
         .filter_map(|answer| match answer {
             Ok(LeafAnswer::LeafAnswer { bindings, .. }) => bindings
@@ -129,17 +134,4 @@ fn get_player_options(machine: &mut Machine, state: &GameState, player: &str) ->
             _ => None,
         })
         .collect()
-}
-
-
-fn query_once_binding(machine: &mut Machine, query: &str, var: &str) -> Option<Term> {
-    let mut answers = machine.run_query(query);
-    let answer = answers.next();
-    match answer {
-        Some(Ok(LeafAnswer::LeafAnswer { bindings, .. })) => match bindings.get(var) {
-            Some(x) => Some(x.to_owned()),
-            None => None,
-        },
-        _ => None,
-    }
 }

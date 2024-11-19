@@ -1,3 +1,4 @@
 pub mod game_logic;
-pub mod prolog_types;
+pub mod scryer_types;
 pub mod random;
+pub mod scryer_util;

@@ -107,22 +107,9 @@ pub fn from_prolog_assoc_recursive(term: &Term) -> TermOrAssoc {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::scryer_util::query_once_binding;
     use dashu::Integer;
-    use scryer_prolog::{LeafAnswer, Machine, MachineBuilder};
-
-    fn query_once_binding(machine: &mut Machine, query: &str, var: &str) -> Term {
-        let mut answers = machine.run_query(query);
-        let answer = answers.next();
-        match answer {
-            Some(Ok(LeafAnswer::LeafAnswer { bindings, .. })) => match bindings.get(var) {
-                Some(x) => {
-                    return x.to_owned();
-                }
-                _ => panic!("Unexpected bindings: {:?}", bindings),
-            },
-            _ => panic!("Unexpected answer: {:?}", answer),
-        }
-    }
+    use scryer_prolog::MachineBuilder;
 
     #[test]
     fn test_to_prolog1() {
@@ -308,13 +295,13 @@ mod test {
 
     #[test]
     fn test_from_prolog_assoc_machine() {
-        let mut machine = MachineBuilder::default().build();
-        machine.load_module_string("test", r#":- use_module(library(assoc))."#);
+        let mut scryer = MachineBuilder::default().build();
+        scryer.load_module_string("test", r#":- use_module(library(assoc))."#);
 
         let query = r#"
             list_to_assoc([a-b, c-[d(x), e(x)], f-1, g-(h-i), j-k], X).
         "#;
-        let term = query_once_binding(&mut machine, query, "X");
+        let term = query_once_binding(&mut scryer, query, "X").unwrap();
         let result = from_prolog_assoc(&term);
         assert_eq!(
             result,
@@ -465,14 +452,14 @@ mod test {
 
     #[test]
     fn test_from_prolog_assoc_machine_recursive() {
-        let mut machine = MachineBuilder::default().build();
+        let mut scryer = MachineBuilder::default().build();
 
-        machine.load_module_string("test", r#":- use_module(library(assoc))."#);
+        scryer.load_module_string("test", r#":- use_module(library(assoc))."#);
 
         let query = r#"
             list_to_assoc([a-b, c-[d(x), e(x)], f-1, g-(h-i), j-k], X).
         "#;
-        let term = query_once_binding(&mut machine, query, "X");
+        let term = query_once_binding(&mut scryer, query, "X").unwrap();
         let result = from_prolog_assoc_recursive(&term);
         assert_eq!(
             result,
