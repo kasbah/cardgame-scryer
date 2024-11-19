@@ -1,12 +1,50 @@
-use crate::game_logic::{run_game, GameState};
+use crate::game_logic::{run_game_with_machine, GameState};
 use crate::{random::random_choice, scryer_types::to_prolog};
-use scryer_prolog::{LeafAnswer, Machine as ScryerMachine, Term};
+use scryer_prolog::{LeafAnswer, Machine as ScryerMachine, MachineBuilder, Term};
 use std::collections::BTreeMap;
 
-pub fn create_ai() -> impl Fn(&GameState, &Vec<GameState>) -> usize {
-    fn make_ai_move(_: &GameState, options: &Vec<GameState>) -> usize {
-        0
-    }
+pub fn create_ai() -> impl FnMut(&GameState, &Vec<GameState>) -> usize {
+    let mut scryer = MachineBuilder::default().build();
+    let file_content = include_str!("logic.pl");
+    scryer.load_module_string("logic", file_content);
+
+
+    let make_ai_move = move |visible_state: &GameState, options: &Vec<GameState>| {
+        let mut scores = Vec::new();
+        for option in options {
+            let mut score: i128 = 0;
+            for _ in 0..10 {
+                let mut possible_state = get_possible_state(&mut scryer, visible_state);
+                let mut chosen_state = option.clone();
+                chosen_state.append(&mut possible_state);
+                let next_state = run_game_with_machine(
+                    &mut scryer,
+                    &mut |_, __| 0,
+                    &mut |_, __| 0,
+                    Some(chosen_state),
+                    Some(1),
+                );
+                let deck1 = next_state.get("deck1").unwrap();
+                let deck2 = next_state.get("deck2").unwrap();
+                let win_pile1 = next_state.get("win_pile1").unwrap();
+                let win_pile2 = next_state.get("win_pile2").unwrap();
+                
+                let player1_n_cards = match (deck1, win_pile1) {
+                    (Term::List(d1), Term::List(w1)) => d1.len() + w1.len(),
+                    _ => 0,
+                };
+                
+                let player2_n_cards = match (deck2, win_pile2) {
+                    (Term::List(d2), Term::List(w2)) => d2.len() + w2.len(),
+                    _ => 0,
+                };
+                score += player1_n_cards as i128 - player2_n_cards as i128;
+            }
+            scores.push(score);
+        }
+        let max = scores.iter().max().unwrap();
+        scores.iter().position(|x| x == max).unwrap()
+    };
     make_ai_move
 }
 

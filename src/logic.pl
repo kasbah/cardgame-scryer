@@ -291,6 +291,38 @@ sees(player1, GameStateIn, VisibleState) :-
   ], VisibleState).
 
 
+sees(player2, GameStateIn, VisibleState) :-
+  get_assoc(game_phase, GameStateIn, GamePhase),
+  GamePhase = playing,
+  get_assoc(deck1, GameStateIn, Deck1),
+  get_assoc(deck2, GameStateIn, Deck2),
+  get_assoc(win_pile1, GameStateIn, WinPile1),
+  get_assoc(win_pile2, GameStateIn, WinPile2),
+  get_assoc(cards_on_table, GameStateIn, CardsOnTable),
+  get_assoc(selected_category, GameStateIn, SelectedCategory),
+  get_assoc(player_turn, GameStateIn, PlayerTurn),
+  nth0(0, Deck2, VisibleCard),
+  nth0(0, VisibleDeck2, VisibleCard),
+  same_length(Deck1, VisibleDeck1),
+  same_length(Deck2, VisibleDeck2),
+  same_length(WinPile1, VisibleWinPile1),
+  same_length(WinPile2, VisibleWinPile2),
+  maplist(any_card, VisibleDeck1),
+  maplist(any_card, VisibleDeck2),
+  maplist(any_card, VisibleWinPile1),
+  maplist(any_card, VisibleWinPile2),
+  list_to_assoc([
+    deck1-VisibleDeck1,
+    deck2-VisibleDeck2,
+    win_pile1-VisibleWinPile1,
+    win_pile2-VisibleWinPile2,
+    cards_on_table-CardsOnTable,
+    selected_category-SelectedCategory,
+    game_phase-playing,
+    player_turn-PlayerTurn
+  ], VisibleState).
+
+
 sees(_, GameStateIn, VisibleState) :-
   get_assoc(game_phase, GameStateIn, GamePhase),
   get_assoc(deck1, GameStateIn, Deck1),

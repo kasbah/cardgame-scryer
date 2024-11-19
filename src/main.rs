@@ -79,17 +79,17 @@ fn show_state(state: &GameState) {
     );
     println!(
         "Your cards: {}",
-        get_list_len("deck1") + get_list_len("win_pile1")
+        get_list_len("deck2") + get_list_len("win_pile2")
     );
     println!(
         "Opponent cards: {}",
-        get_list_len("deck2") + get_list_len("win_pile2")
+        get_list_len("deck1") + get_list_len("win_pile1")
     );
 
     if let (Some(Term::Atom(phase)), Some(Term::Atom(turn))) =
         (get_term("game_phase"), get_term("player_turn"))
     {
-        if phase == "scoring" && turn == "player2" {
+        if phase == "scoring" && turn == "player1" {
             println!(
                 "Opponent picked: {:?}",
                 get_term("selected_category").unwrap_or(&Term::Atom("unknown".to_string()))
@@ -101,8 +101,8 @@ fn show_state(state: &GameState) {
     if let (Some(Term::Atom(phase)), Some(Term::Atom(turn))) =
         (get_term("game_phase"), get_term("player_turn"))
     {
-        if phase == "playing" && turn == "player1" {
-            if let Some(Term::List(deck)) = get_term("deck1") {
+        if phase == "playing" && turn == "player2" {
+            if let Some(Term::List(deck)) = state.get("deck2") {
                 if let Some(card) = deck.first() {
                     println!("Your card:");
                     show_card(card);
@@ -110,11 +110,11 @@ fn show_state(state: &GameState) {
             }
         } else if phase == "scoring" {
             if let Some(Term::List(table_cards)) = get_term("cards_on_table") {
-                if let Some(card) = table_cards.first() {
+                if let Some(card) = table_cards.get(1) {
                     println!("Your card:");
                     show_card(card);
                 }
-                if let Some(card) = table_cards.get(1) {
+                if let Some(card) = table_cards.get(0) {
                     println!("Opponent card:");
                     show_card(card);
                 }
@@ -123,7 +123,7 @@ fn show_state(state: &GameState) {
     }
 }
 
-pub fn resolve_player1(state: &GameState, options: &Vec<GameState>) -> usize {
+pub fn resolve_human_player(state: &GameState, options: &Vec<GameState>) -> usize {
     show_state(state);
 
     let mut n = 0;
@@ -151,7 +151,7 @@ pub fn resolve_player1(state: &GameState, options: &Vec<GameState>) -> usize {
 }
 
 fn main() {
-    let make_ai_move = create_ai();
-    let final_state = run_game(resolve_player1, make_ai_move, None, None);
+    let mut make_ai_move = create_ai();
+    let final_state = run_game(&mut make_ai_move, &mut resolve_human_player, None, None);
     println!("{:?}", final_state);
 }

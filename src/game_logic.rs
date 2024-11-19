@@ -7,8 +7,8 @@ use std::collections::BTreeMap;
 pub type GameState = BTreeMap<String, Term>;
 
 pub fn run_game(
-    resolve_player1: impl Fn(&GameState, &Vec<GameState>) -> usize,
-    resolve_player2: impl Fn(&GameState, &Vec<GameState>) -> usize,
+    resolve_player1: &mut impl FnMut(&GameState, &Vec<GameState>) -> usize,
+    resolve_player2: &mut impl FnMut(&GameState, &Vec<GameState>) -> usize,
     initial_state: Option<GameState>,
     max_steps: Option<usize>,
 ) -> GameState {
@@ -27,8 +27,8 @@ pub fn run_game(
 
 pub fn run_game_with_machine(
     scryer: &mut ScryerMachine,
-    resolve_player1: impl Fn(&GameState, &Vec<GameState>) -> usize,
-    resolve_player2: impl Fn(&GameState, &Vec<GameState>) -> usize,
+    resolve_player1: &mut impl FnMut(&GameState, &Vec<GameState>) -> usize,
+    resolve_player2: &mut impl FnMut(&GameState, &Vec<GameState>) -> usize,
     initial_state: Option<GameState>,
     max_steps: Option<usize>,
 ) -> GameState {
@@ -59,10 +59,11 @@ pub fn run_game_with_machine(
 
         let player2_visible = get_visible(scryer, &state, "player2");
         let mut player2_options = get_player_options(scryer, &state, "player2");
-        if !player2_options.is_empty() {
-            let player2_choice = resolve_player2(&player2_visible, &player2_options);
-            state.append(&mut player2_options[player2_choice]);
+        if player2_options.is_empty() {
+            player2_options.push(BTreeMap::new());
         }
+        let player2_choice = resolve_player2(&player2_visible, &player2_options);
+        state.append(&mut player2_options[player2_choice]);
 
         steps += 1;
     }
