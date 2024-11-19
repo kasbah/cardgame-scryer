@@ -6,8 +6,8 @@ use std::collections::BTreeMap;
 pub type GameState = BTreeMap<String, Term>;
 
 pub fn run_game(
-    resolve_player1: &dyn Fn(GameState, &Vec<GameState>) -> usize,
-    resolve_player2: &dyn Fn(GameState, &Vec<GameState>) -> usize,
+    resolve_player1: impl Fn(GameState, &Vec<GameState>) -> usize,
+    resolve_player2: impl Fn(GameState, &Vec<GameState>) -> usize,
     initial_state: Option<GameState>,
     max_steps: Option<usize>,
 ) -> GameState {
@@ -89,8 +89,8 @@ fn get_player_options(machine: &mut Machine, state: &GameState, player: &str) ->
 
 pub fn run_game_with_machine(
     machine: &mut Machine,
-    resolve_player1: &dyn Fn(GameState, &Vec<GameState>) -> usize,
-    resolve_player2: &dyn Fn(GameState, &Vec<GameState>) -> usize,
+    resolve_player1: impl Fn(GameState, &Vec<GameState>) -> usize,
+    resolve_player2: impl Fn(GameState, &Vec<GameState>) -> usize,
     initial_state: Option<GameState>,
     max_steps: Option<usize>,
 ) -> GameState {
