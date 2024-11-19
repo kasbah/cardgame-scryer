@@ -1,3 +1,4 @@
+use cardgame::ai::create_ai;
 use cardgame::game_logic::{run_game, GameState};
 use cardgame::random::random_choice;
 use scryer_prolog::Term;
@@ -150,6 +151,7 @@ pub fn resolve_player1(state: &GameState, options: &Vec<GameState>) -> usize {
 }
 
 fn main() {
-    let final_state = run_game(resolve_player1, make_random_move, None, Some(100));
+    let make_ai_move = create_ai();
+    let final_state = run_game(resolve_player1, make_ai_move, None, None);
     println!("{:?}", final_state);
 }
