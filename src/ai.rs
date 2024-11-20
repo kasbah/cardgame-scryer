@@ -13,15 +13,14 @@ pub fn create_ai() -> impl FnMut(&GameState, &Vec<GameState>) -> usize {
         let mut scores = Vec::new();
         for option in options {
             let mut score: i128 = 0;
-            for _ in 0..10 {
+            for _ in 0..100 {
                 let mut possible_state = get_possible_state(&mut scryer, visible_state);
-                let mut chosen_state = option.clone();
-                chosen_state.append(&mut possible_state);
+                possible_state.extend(option.clone());
                 let next_state = run_game_with_machine(
                     &mut scryer,
                     &mut |_, __| 0,
                     &mut |_, __| 0,
-                    Some(chosen_state),
+                    Some(possible_state),
                     Some(1),
                 );
                 let deck1 = next_state.get("deck1").unwrap();

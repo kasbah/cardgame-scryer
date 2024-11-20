@@ -11,7 +11,7 @@ pub fn from_prolog_assoc(term: &Term) -> BTreeMap<String, Term> {
                 let mut map = BTreeMap::new();
                 map.insert(key.clone(), value.clone());
                 match rest {
-                    [Atom(s), terms @ ..] if s == "<" || s == "-" => {
+                    [Atom(s), terms @ ..] if s == "<" || s == "-" || s == ">" => {
                         for term in terms {
                             let mut m = from_prolog_assoc(term);
                             map.append(&mut m);

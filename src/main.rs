@@ -127,8 +127,10 @@ pub fn resolve_human_player(state: &GameState, options: &Vec<GameState>) -> usiz
     show_state(state);
 
     let mut n = 0;
-    if let Some(Term::Atom(phase)) = state.get("game_phase") {
-        if phase == "playing" || phase == "scoring" {
+    match (state.get("game_phase"), state.get("player_turn")) {
+        (Some(Term::Atom(phase)), Some(Term::Atom(player_turn)))
+            if (phase == "playing" && player_turn == "player2") || (phase == "scoring") =>
+        {
             for (i, option) in options.iter().enumerate() {
                 println!("option {}: {:?}", i, option);
             }
@@ -145,7 +147,8 @@ pub fn resolve_human_player(state: &GameState, options: &Vec<GameState>) -> usiz
                 }
             }
         }
-    }
+        _ => n = 0,
+    };
 
     n
 }

@@ -1,5 +1,5 @@
-use crate::scryer_types::{from_prolog_assoc, to_prolog_assoc};
 use crate::random::random_choice;
+use crate::scryer_types::{from_prolog_assoc, to_prolog_assoc};
 use crate::scryer_util::query_once_binding;
 use scryer_prolog::{LeafAnswer, Machine as ScryerMachine, MachineBuilder, Term};
 use std::collections::BTreeMap;
@@ -86,9 +86,7 @@ fn resolve_randomness(scryer: &mut ScryerMachine, state: GameState) -> GameState
     let answers: Vec<Term> = scryer
         .run_query(&query)
         .filter_map(|answer| match answer {
-            Ok(LeafAnswer::LeafAnswer { bindings, .. }) => {
-                bindings.get("StateOut").cloned()
-            }
+            Ok(LeafAnswer::LeafAnswer { bindings, .. }) => bindings.get("StateOut").cloned(),
             _ => None,
         })
         .collect();
@@ -102,10 +100,13 @@ fn resolve_randomness(scryer: &mut ScryerMachine, state: GameState) -> GameState
 }
 
 fn resolve_next(scryer: &mut ScryerMachine, state: GameState) -> GameState {
+    println!("next in: {:?}", state.get("game_phase").unwrap());
     let state_in = to_prolog_assoc(&state, "StateIn");
     let query = format!(r#"{state_in}, once(next(StateIn, StateOut))."#);
     let answer = query_once_binding(scryer, &query, "StateOut");
-    answer.map(|term| from_prolog_assoc(&term)).unwrap_or(state)
+    let x = answer.map(|term| from_prolog_assoc(&term));
+    println!("next out: {:?}", x.as_ref().map(|t| t.get("game_phase").unwrap()));
+    x.unwrap_or(state)
 }
 
 fn get_visible(scryer: &mut ScryerMachine, state: &GameState, player: &str) -> GameState {
@@ -129,9 +130,9 @@ fn get_player_options(
     scryer
         .run_query(&query)
         .filter_map(|answer| match answer {
-            Ok(LeafAnswer::LeafAnswer { bindings, .. }) => bindings
-                .get("PartialStateOut")
-                .map(from_prolog_assoc),
+            Ok(LeafAnswer::LeafAnswer { bindings, .. }) => {
+                bindings.get("PartialStateOut").map(from_prolog_assoc)
+            }
             _ => None,
         })
         .collect()
