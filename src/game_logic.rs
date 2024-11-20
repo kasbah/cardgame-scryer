@@ -100,12 +100,10 @@ fn resolve_randomness(scryer: &mut ScryerMachine, state: GameState) -> GameState
 }
 
 fn resolve_next(scryer: &mut ScryerMachine, state: GameState) -> GameState {
-    println!("next in: {:?}", state.get("game_phase").unwrap());
     let state_in = to_prolog_assoc(&state, "StateIn");
     let query = format!(r#"{state_in}, once(next(StateIn, StateOut))."#);
     let answer = query_once_binding(scryer, &query, "StateOut");
     let x = answer.map(|term| from_prolog_assoc(&term));
-    println!("next out: {:?}", x.as_ref().map(|t| t.get("game_phase").unwrap()));
     x.unwrap_or(state)
 }
 
