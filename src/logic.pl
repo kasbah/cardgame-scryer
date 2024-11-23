@@ -56,18 +56,26 @@ a_card(Card) :-
   all_cards(Cards),
   member(Card, Cards).
 
-
+% GamePhase = dealing
+% Deck1 = []
+% Deck2 = []
+% WinPile1 = []
+% WinPile2 = []
+% CardsOnTable = []
+% PlayerTurn = none
+% SelectedCategory = none
 init(GameState) :-
   list_to_assoc([
+    game_phase-dealing,
     deck1-[],
     deck2-[],
     win_pile1-[],
     win_pile2-[],
     cards_on_table-[],
-    game_phase-dealing,
     player_turn-none,
     selected_category-none
   ], GameState).
+
 
 
 random_options(GameStateIn, GameStateOut) :-
@@ -111,7 +119,11 @@ random_options(GameStateIn, GameStateOut) :-
     win_pile2-[RestOfWinPile2]
   ], GameStateIn, GameStateOut).
 
-
+% Current.GamePhase = dealing
+% no random_options()
+% Next.GamePhase = playing
+% Next.PlayerTurn = player1
+%
 next(GameStateIn, GameStateOut) :-
   get_assoc(game_phase, GameStateIn, GamePhase),
   GamePhase = dealing,
@@ -136,14 +148,22 @@ next(GameStateIn, GameStateOut) :-
     deck2-RestOfDeck2
   ], GameStateIn, GameStateOut).
 
-
+% Current.GamePhase = scoring
+% Current.CardsOnTable = [Player1Card, Player2Card]
+% N = Current.SelectedCategory[0]
+% if Player1Card[N] > Player2Card[N]
+%  Next.WinPile1 = [Player1Card, Player2Card | Current.WinPile2]
+% else
+%  Next.WinPile2 = [Player1Card, Player2Card | Current.WinPile2]
+% Next.SelectedCategory = none
+% Next.CardsOnTable = none
+% Next.GamePhase = evaluating
+%
 next(GameStateIn, GameStateOut) :-
   get_assoc(game_phase, GameStateIn, GamePhase),
   GamePhase = scoring,
   get_assoc(cards_on_table, GameStateIn, CardsOnTable),
   CardsOnTable = [Player1Card, Player2Card],
-  write_term(Player1Card, []),
-  write_term(Player2Card, []),
   get_assoc(selected_category, GameStateIn, SelectedCategory),
   category(N, _) = SelectedCategory,
   Player1Card =.. Player1CardDeconstructed,
@@ -257,6 +277,21 @@ any_card(Card) :-
   Card = card(_,_,_,_,_,_,_).
 
 
+% Current.GamePhase = playing
+% Visible.Deck1 = [ Current.Deck1[0] | RestOfDeck1 ]
+% any_cards(RestOfDeck1)
+% any_cards(Visible.Deck2)
+% any_cards(Visible.WinPile1)
+% any_cards(Visible.WinPile2)
+% same_length(Visible.Deck1, Current.Deck1)
+% same_length(Visible.Deck2, Current.Deck2)
+% same_length(Visible.WinPile1, Current.WinPile1)
+% same_length(Visible.WinPile2, Current.WinPile2)
+% Visible.CardsOnTable = Current.CardsOnTable
+% Visible.SelectedCategory = Current.SelectedCategory
+% Visible.PlayerTurn = Current.PlayerTurn
+% Visible.GamePhase = Current.GamePhase
+%
 sees(player1, GameStateIn, VisibleState) :-
   get_assoc(game_phase, GameStateIn, GamePhase),
   GamePhase = playing,
