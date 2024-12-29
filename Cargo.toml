@@ -11,8 +11,8 @@ rand = "0.8.5"
 
 [dependencies.scryer-prolog]
 default-features = false
-git = "https://github.com/bakaq/scryer-prolog"
-branch = "rework_library_interface"
+git = "https://github.com/mthom/scryer-prolog"
+branch = "master"
 
 [dev-dependencies]
 dashu = "0.4.2"
