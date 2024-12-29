@@ -1,13 +1,16 @@
 use actix::{Actor, Handler, Message, SyncArbiter, SyncContext, System};
-use scryer_prolog::{Machine as ScryerMachine, MachineBuilder};
+use scryer_prolog::{LeafAnswer, Machine as ScryerMachine, MachineBuilder, Term};
+use std::collections::BTreeMap;
 
 #[derive(Debug)]
 pub struct ScryerActor {
     scryer: ScryerMachine,
 }
 
+pub type QueryResult = Vec<BTreeMap<String, Term>>;
+
 #[derive(Message)]
-#[rtype(usize)]
+#[rtype(QueryResult)]
 struct Query(String);
 
 impl Actor for ScryerActor {
@@ -22,11 +25,16 @@ impl Actor for ScryerActor {
 }
 
 impl Handler<Query> for ScryerActor {
-    type Result = usize;
+    type Result = QueryResult;
 
     fn handle(&mut self, query: Query, _ctx: &mut SyncContext<Self>) -> Self::Result {
-        let answers = self.scryer.run_query(&query.0);
-        answers.count()
+        self.scryer
+            .run_query(&query.0)
+            .filter_map(|answer| match answer {
+                Ok(LeafAnswer::LeafAnswer { bindings, .. }) => Some(bindings),
+                _ => None,
+            })
+            .collect()
     }
 }
 
