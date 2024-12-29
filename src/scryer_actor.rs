@@ -1,9 +1,9 @@
-use actix::{Actor, Context, Handler, Message, System};
+use actix::{Actor, Handler, Message, SyncArbiter, SyncContext, System};
 use scryer_prolog::{Machine as ScryerMachine, MachineBuilder};
 
 #[derive(Debug)]
 pub struct ScryerActor {
-    scryer: Option<ScryerMachine>,
+    scryer: ScryerMachine,
 }
 
 #[derive(Message)]
@@ -11,13 +11,9 @@ pub struct ScryerActor {
 struct Query(String);
 
 impl Actor for ScryerActor {
-    type Context = Context<Self>;
+    type Context = SyncContext<Self>;
 
     fn started(&mut self, _ctx: &mut Self::Context) {
-        let mut scryer = MachineBuilder::default().build();
-        let file_content = include_str!("logic.pl");
-        scryer.load_module_string("logic", file_content);
-        self.scryer = Some(scryer);
         println!("I am alive!");
     }
     fn stopped(&mut self, _ctx: &mut Self::Context) {
@@ -28,9 +24,8 @@ impl Actor for ScryerActor {
 impl Handler<Query> for ScryerActor {
     type Result = usize;
 
-    fn handle(&mut self, query: Query, _ctx: &mut Context<Self>) -> Self::Result {
-        let scryer = self.scryer.as_mut().unwrap();
-        let answers = scryer.run_query(&query.0);
+    fn handle(&mut self, query: Query, _ctx: &mut SyncContext<Self>) -> Self::Result {
+        let answers = self.scryer.run_query(&query.0);
         answers.count()
     }
 }
@@ -42,7 +37,14 @@ mod test {
     #[test]
     fn test_actor() {
         let system = System::new();
-        let addr = system.block_on(async { ScryerActor { scryer: None }.start() });
+        let addr = system.block_on(async {
+            SyncArbiter::start(1, || {
+                let mut scryer = MachineBuilder::default().build();
+                let file_content = include_str!("logic.pl");
+                scryer.load_module_string("logic", file_content);
+                ScryerActor { scryer }
+            })
+        });
         let res = system.block_on(async {
             addr.send(Query(
                 "card(Id, Distance, Temp, OrbitTime, Radius, Mass, EarthSimilarity).".to_string(),

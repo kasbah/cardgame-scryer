@@ -9,6 +9,7 @@ edition = "2021"
 actix = "0.13.5"
 maplit = "1.0.2"
 rand = "0.8.5"
+tokio = "1.42.0"
 
 [dependencies.scryer-prolog]
 default-features = false
