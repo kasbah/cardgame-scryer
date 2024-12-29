@@ -1,13 +1,12 @@
 use actix::{Actor, Handler, Message, SyncArbiter, SyncContext, System};
 use scryer_prolog::{LeafAnswer, Machine as ScryerMachine, MachineBuilder, Term};
-use std::collections::BTreeMap;
 
 #[derive(Debug)]
 pub struct ScryerActor {
     scryer: ScryerMachine,
 }
 
-pub type QueryResult = Vec<BTreeMap<String, Term>>;
+pub type QueryResult = Vec<Result<LeafAnswer, Term>>;
 
 #[derive(Message)]
 #[rtype(QueryResult)]
@@ -28,13 +27,7 @@ impl Handler<Query> for ScryerActor {
     type Result = QueryResult;
 
     fn handle(&mut self, query: Query, _ctx: &mut SyncContext<Self>) -> Self::Result {
-        self.scryer
-            .run_query(&query.0)
-            .filter_map(|answer| match answer {
-                Ok(LeafAnswer::LeafAnswer { bindings, .. }) => Some(bindings),
-                _ => None,
-            })
-            .collect()
+        self.scryer.run_query(&query.0).collect()
     }
 }
 
