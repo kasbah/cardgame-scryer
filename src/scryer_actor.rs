@@ -1,34 +1,27 @@
-use actix::{Actor, Context, System, Message, Handler};
-use scryer_prolog::{Machine as ScryerMachine, MachineBuilder};
+use actix::{Actor, Context, Handler, Message, System};
 
-pub struct ScryerActor {
-    scryer: ScryerMachine,
-}
+struct ScryerActor;
 
 #[derive(Message)]
 #[rtype(usize)]
-struct Query(String);
-
+struct Sum(usize, usize);
 
 impl Actor for ScryerActor {
     type Context = Context<Self>;
 
     fn started(&mut self, _ctx: &mut Self::Context) {
-        self.scryer = MachineBuilder::default().build();
-        let file_content = include_str!("logic.pl");
-        self.scryer.load_module_string("logic", file_content);
-        println!("Scryer actor started");
+        println!("I am alive!");
     }
-
+    fn stopped(&mut self, _ctx: &mut Self::Context) {
+        println!("I am dead!");
+    }
 }
 
-impl Handler<Query> for ScryerActor {
-    type Result = usize;
+impl Handler<Sum> for ScryerActor {
+    type Result = usize; // <- Message response type
 
-    fn handle(&mut self, msg: Query, _ctx: &mut Self::Context) -> Self::Result {
-        let query = msg.0;
-        let answers = self.scryer.run_query(&query);
-        answers.count()
+    fn handle(&mut self, msg: Sum, _ctx: &mut Context<Self>) -> Self::Result {
+        msg.0 + msg.1
     }
 }
 
@@ -37,9 +30,11 @@ mod test {
     use super::*;
 
     #[test]
-    fn test() {
+    fn test_actor() {
         let system = System::new();
         let addr = system.block_on(async { ScryerActor.start() });
-        addr.send("card(Id, Distance, Temp, OrbitTime, Radius, Mass, EarthSimilarity)").unwrap();
+        let res = system.block_on(async { addr.send(Sum(1, 2)).await.unwrap() });
+        println!("Result: {:?}", res);
+        system.run().unwrap();
     }
 }
