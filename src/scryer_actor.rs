@@ -1,27 +1,20 @@
-use actix::{Actor, Handler, Message, SyncArbiter, SyncContext, System};
+use actix::{Actor, Addr, Handler, Message, SyncArbiter, SyncContext, System};
 use scryer_prolog::{LeafAnswer, Machine as ScryerMachine, MachineBuilder, Term};
 
 #[derive(Debug)]
 pub struct ScryerActor {
     scryer: ScryerMachine,
 }
+impl Actor for ScryerActor {
+    type Context = SyncContext<Self>;
+}
 
-pub type QueryResult = Vec<Result<LeafAnswer, Term>>;
 
 #[derive(Message)]
 #[rtype(QueryResult)]
 struct Query(String);
 
-impl Actor for ScryerActor {
-    type Context = SyncContext<Self>;
-
-    fn started(&mut self, _ctx: &mut Self::Context) {
-        println!("I am alive!");
-    }
-    fn stopped(&mut self, _ctx: &mut Self::Context) {
-        println!("I am dead!");
-    }
-}
+pub type QueryResult = Vec<Result<LeafAnswer, Term>>;
 
 impl Handler<Query> for ScryerActor {
     type Result = QueryResult;
@@ -31,6 +24,22 @@ impl Handler<Query> for ScryerActor {
     }
 }
 
+
+#[derive(Message)]
+#[rtype(QueryOnceResult)]
+struct QueryOnce(String);
+
+pub type QueryOnceResult = Result<LeafAnswer, Term>;
+
+impl Handler<QueryOnce> for ScryerActor {
+    type Result = QueryOnceResult;
+
+    fn handle(&mut self, query: QueryOnce, _ctx: &mut SyncContext<Self>) -> Self::Result {
+        self.scryer.run_query(&query.0).next().expect("No result from QueryOnce")
+    }
+}
+
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -38,7 +47,7 @@ mod test {
     #[test]
     fn test_actor() {
         let system = System::new();
-        let addr = system.block_on(async {
+        let addr: Addr<ScryerActor> = system.block_on(async {
             SyncArbiter::start(1, || {
                 let mut scryer = MachineBuilder::default().build();
                 let file_content = include_str!("logic.pl");
@@ -46,14 +55,20 @@ mod test {
                 ScryerActor { scryer }
             })
         });
-        let res = system.block_on(async {
+        let _res1 = system.block_on(async {
             addr.send(Query(
                 "card(Id, Distance, Temp, OrbitTime, Radius, Mass, EarthSimilarity).".to_string(),
             ))
             .await
             .unwrap()
         });
-        println!("Result: {:?}", res);
-        system.run().unwrap();
+        let _res2 = system.block_on(async {
+            addr.send(QueryOnce(
+                "card(Id, Distance, Temp, OrbitTime, Radius, Mass, EarthSimilarity).".to_string(),
+            ))
+            .await
+            .unwrap()
+        });
+        System::current().stop();
     }
 }
