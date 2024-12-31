@@ -1,34 +1,18 @@
+use crate::move_messages::MoveOptions;
+use crate::player_actor::PlayerActor;
 use crate::random::random_choice;
 use crate::scryer_types::{from_prolog_assoc, to_prolog_assoc};
 use crate::scryer_util::query_once_binding;
-use scryer_prolog::{LeafAnswer, Machine as ScryerMachine, MachineBuilder, Term};
+use actix::Addr;
+use scryer_prolog::{LeafAnswer, Machine as ScryerMachine, Term};
 use std::collections::BTreeMap;
 
 pub type GameState = BTreeMap<String, Term>;
 
-pub fn run_game(
-    resolve_player1: &mut impl FnMut(&GameState, &Vec<GameState>) -> usize,
-    resolve_player2: &mut impl FnMut(&GameState, &Vec<GameState>) -> usize,
-    initial_state: Option<GameState>,
-    max_steps: Option<usize>,
-) -> GameState {
-    let mut scryer = MachineBuilder::default().build();
-    let file_content = include_str!("logic.pl");
-    scryer.load_module_string("logic", file_content);
-
-    run_game_with_machine(
-        &mut scryer,
-        resolve_player1,
-        resolve_player2,
-        initial_state,
-        max_steps,
-    )
-}
-
-pub fn run_game_with_machine(
+pub async fn run_game(
     scryer: &mut ScryerMachine,
-    resolve_player1: &mut impl FnMut(&GameState, &Vec<GameState>) -> usize,
-    resolve_player2: &mut impl FnMut(&GameState, &Vec<GameState>) -> usize,
+    player1: Addr<PlayerActor>,
+    player2: Addr<PlayerActor>,
     initial_state: Option<GameState>,
     max_steps: Option<usize>,
 ) -> GameState {
@@ -53,7 +37,13 @@ pub fn run_game_with_machine(
         let player1_visible = get_visible(scryer, &state, "player1");
         let mut player1_options = get_player_options(scryer, &state, "player1");
         if !player1_options.is_empty() {
-            let player1_choice = resolve_player1(&player1_visible, &player1_options);
+            let player1_choice = player1
+                .send(MoveOptions {
+                    current: player1_visible,
+                    options: player1_options.clone(),
+                })
+                .await
+                .expect("No response from player1");
             state.append(&mut player1_options[player1_choice]);
         }
 
@@ -62,7 +52,13 @@ pub fn run_game_with_machine(
         if player2_options.is_empty() {
             player2_options.push(BTreeMap::new());
         }
-        let player2_choice = resolve_player2(&player2_visible, &player2_options);
+        let player2_choice = player2
+            .send(MoveOptions {
+                current: player2_visible,
+                options: player2_options.clone(),
+            })
+            .await
+            .expect("No response from player2");
         state.append(&mut player2_options[player2_choice]);
 
         steps += 1;

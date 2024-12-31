@@ -1,6 +1,8 @@
-use cardgame::ai::create_ai;
+use actix::Actor;
 use cardgame::game_logic::{run_game, GameState};
+use cardgame::player_actor::PlayerActor;
 use cardgame::random::random_choice;
+use scryer_prolog::MachineBuilder;
 use scryer_prolog::Term;
 use std::io::{self, Write};
 
@@ -153,8 +155,13 @@ pub fn resolve_human_player(state: &GameState, options: &Vec<GameState>) -> usiz
     n
 }
 
-fn main() {
-    let mut make_ai_move = create_ai();
-    let final_state = run_game(&mut make_ai_move, &mut resolve_human_player, None, None);
+#[actix::main]
+async fn main() {
+    let mut scryer = MachineBuilder::default().build();
+    let file_content = include_str!("logic.pl");
+    scryer.load_module_string("logic", file_content);
+    let player1 = PlayerActor {}.start();
+    let player2 = PlayerActor {}.start();
+    let final_state = run_game(&mut scryer, player1, player2, None, None).await;
     println!("{:?}", final_state);
 }

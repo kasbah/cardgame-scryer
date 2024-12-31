@@ -1,4 +1,4 @@
-use crate::game_logic::{run_game_with_machine, GameState};
+use crate::game_logic::{run_game, GameState};
 use crate::{random::random_choice, scryer_types::to_prolog};
 use scryer_prolog::{LeafAnswer, Machine as ScryerMachine, MachineBuilder, Term};
 use std::collections::BTreeMap;
@@ -16,7 +16,7 @@ pub fn create_ai() -> impl FnMut(&GameState, &Vec<GameState>) -> usize {
             for _ in 0..100 {
                 let mut possible_state = get_possible_state(&mut scryer, visible_state);
                 possible_state.extend(option.clone());
-                let next_state = run_game_with_machine(
+                let next_state = run_game(
                     &mut scryer,
                     &mut |_, __| 0,
                     &mut |_, __| 0,
