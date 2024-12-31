@@ -3,8 +3,8 @@ use actix::Message;
 
 #[derive(Message)]
 #[rtype(MoveChoice)]
-pub struct MoveOptions {
-    pub current: GameState,
+pub struct MoveRequest {
+    pub visible_state: GameState,
     pub options: Vec<GameState>,
 }
 

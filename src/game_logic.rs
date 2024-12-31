@@ -1,4 +1,4 @@
-use crate::move_messages::MoveOptions;
+use crate::move_messages::MoveRequest;
 use crate::random::random_choice;
 use crate::scryer_types::{from_prolog_assoc, to_prolog_assoc};
 use crate::scryer_util::query_once_binding;
@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 
 pub type GameState = BTreeMap<String, Term>;
 
-pub async fn run_game<Player1: Handler<MoveOptions>, Player2: Handler<MoveOptions>>(
+pub async fn run_game<Player1: Handler<MoveRequest>, Player2: Handler<MoveRequest>>(
     scryer: &mut ScryerMachine,
     player1: Addr<Player1>,
     player2: Addr<Player2>,
@@ -17,8 +17,8 @@ pub async fn run_game<Player1: Handler<MoveOptions>, Player2: Handler<MoveOption
     max_steps: Option<usize>,
 ) -> GameState
 where
-    <Player1 as Actor>::Context: ToEnvelope<Player1, MoveOptions>,
-    <Player2 as Actor>::Context: ToEnvelope<Player2, MoveOptions>,
+    <Player1 as Actor>::Context: ToEnvelope<Player1, MoveRequest>,
+    <Player2 as Actor>::Context: ToEnvelope<Player2, MoveRequest>,
 {
     let mut state = match initial_state {
         Some(s) => s,
@@ -42,8 +42,8 @@ where
         let mut player1_options = get_player_options(scryer, &state, "player1");
         if !player1_options.is_empty() {
             let player1_choice = player1
-                .send(MoveOptions {
-                    current: player1_visible,
+                .send(MoveRequest {
+                    visible_state: player1_visible,
                     options: player1_options.clone(),
                 })
                 .await
@@ -57,8 +57,8 @@ where
             player2_options.push(BTreeMap::new());
         }
         let player2_choice = player2
-            .send(MoveOptions {
-                current: player2_visible,
+            .send(MoveRequest {
+                visible_state: player2_visible,
                 options: player2_options.clone(),
             })
             .await
