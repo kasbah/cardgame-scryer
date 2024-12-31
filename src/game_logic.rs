@@ -1,21 +1,25 @@
 use crate::move_messages::MoveOptions;
-use crate::player_actor::PlayerActor;
 use crate::random::random_choice;
 use crate::scryer_types::{from_prolog_assoc, to_prolog_assoc};
 use crate::scryer_util::query_once_binding;
-use actix::Addr;
+use actix::dev::ToEnvelope;
+use actix::{Actor, Addr, Handler};
 use scryer_prolog::{LeafAnswer, Machine as ScryerMachine, Term};
 use std::collections::BTreeMap;
 
 pub type GameState = BTreeMap<String, Term>;
 
-pub async fn run_game(
+pub async fn run_game<Player1: Handler<MoveOptions>, Player2: Handler<MoveOptions>>(
     scryer: &mut ScryerMachine,
-    player1: Addr<PlayerActor>,
-    player2: Addr<PlayerActor>,
+    player1: Addr<Player1>,
+    player2: Addr<Player2>,
     initial_state: Option<GameState>,
     max_steps: Option<usize>,
-) -> GameState {
+) -> GameState
+where
+    <Player1 as Actor>::Context: ToEnvelope<Player1, MoveOptions>,
+    <Player2 as Actor>::Context: ToEnvelope<Player2, MoveOptions>,
+{
     let mut state = match initial_state {
         Some(s) => s,
         None => get_initial_state(scryer),

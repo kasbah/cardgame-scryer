@@ -4,7 +4,6 @@ use actix::{Actor, Addr, Context, Handler};
 use actix_async_handler::async_handler;
 
 pub struct AiActor {
-    pub scryer: Addr<ScryerActor>,
 }
 
 impl Actor for AiActor {
