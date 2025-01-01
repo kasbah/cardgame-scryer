@@ -11,9 +11,9 @@ use std::collections::BTreeMap;
 pub type GameState = BTreeMap<String, Term>;
 
 pub async fn run_game<Player1: Handler<MoveRequest>, Player2: Handler<MoveRequest>>(
-    scryer: Addr<ScryerActor>,
-    player1: Addr<Player1>,
-    player2: Addr<Player2>,
+    scryer: &Addr<ScryerActor>,
+    player1: &Addr<Player1>,
+    player2: &Addr<Player2>,
     initial_state: Option<GameState>,
     max_steps: Option<usize>,
 ) -> GameState
@@ -23,7 +23,7 @@ where
 {
     let mut state = match initial_state {
         Some(s) => s,
-        None => get_initial_state(&scryer).await,
+        None => get_initial_state(scryer).await,
     };
 
     let finished = Term::Atom("finished".to_string());
@@ -35,11 +35,11 @@ where
         .expect("Missing game_phase")
         && steps <= max_steps.unwrap_or(usize::MAX)
     {
-        state = resolve_randomness(&scryer, state).await;
+        state = resolve_randomness(scryer, state).await;
 
-        state = resolve_next(&scryer, state).await;
+        state = resolve_next(scryer, state).await;
 
-        let player1_visible = get_visible(&scryer, &state, "player1").await;
+        let player1_visible = get_visible(scryer, &state, "player1").await;
         let mut player1_options = get_player_options(&scryer, &state, "player1").await;
         if !player1_options.is_empty() {
             let player1_choice = player1
@@ -52,8 +52,8 @@ where
             state.append(&mut player1_options[player1_choice]);
         }
 
-        let player2_visible = get_visible(&scryer, &state, "player2").await;
-        let mut player2_options = get_player_options(&scryer, &state, "player2").await;
+        let player2_visible = get_visible(scryer, &state, "player2").await;
+        let mut player2_options = get_player_options(scryer, &state, "player2").await;
         if player2_options.is_empty() {
             player2_options.push(BTreeMap::new());
         }

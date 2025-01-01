@@ -231,6 +231,7 @@ dependencies = [
  "actix",
  "actix_async_handler",
  "dashu",
+ "futures",
  "maplit",
  "rand",
  "scryer-prolog",
