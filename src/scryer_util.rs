@@ -1,10 +1,13 @@
-use scryer_prolog::{LeafAnswer, Machine as ScryerMachine, Term};
+use crate::scryer_actor::{QueryOnce, ScryerActor};
+use actix::Addr;
+use scryer_prolog::{LeafAnswer, Term};
 
-pub fn query_once_binding(scryer: &mut ScryerMachine, query: &str, var: &str) -> Option<Term> {
-    let mut answers = scryer.run_query(query);
-    let answer = answers.next();
+pub async fn query_once_binding(scryer: &Addr<ScryerActor>, query: &str, var: &str) -> Option<Term> {
+    let answer = scryer
+        .send(QueryOnce(query.to_string()))
+        .await;
     match answer {
-        Some(Ok(LeafAnswer::LeafAnswer { bindings, .. })) => bindings.get(var).cloned(),
+        Ok(Ok(LeafAnswer::LeafAnswer { bindings, .. })) => bindings.get(var).cloned(),
         _ => None,
     }
 }

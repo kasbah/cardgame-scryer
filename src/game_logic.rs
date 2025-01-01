@@ -1,16 +1,17 @@
 use crate::move_request::MoveRequest;
 use crate::random::random_choice;
+use crate::scryer_actor::{Query, ScryerActor};
 use crate::scryer_types::{from_prolog_assoc, to_prolog_assoc};
 use crate::scryer_util::query_once_binding;
 use actix::dev::ToEnvelope;
 use actix::{Actor, Addr, Handler};
-use scryer_prolog::{LeafAnswer, Machine as ScryerMachine, Term};
+use scryer_prolog::{LeafAnswer, Term};
 use std::collections::BTreeMap;
 
 pub type GameState = BTreeMap<String, Term>;
 
 pub async fn run_game<Player1: Handler<MoveRequest>, Player2: Handler<MoveRequest>>(
-    scryer: &mut ScryerMachine,
+    scryer: Addr<ScryerActor>,
     player1: Addr<Player1>,
     player2: Addr<Player2>,
     initial_state: Option<GameState>,
@@ -22,7 +23,7 @@ where
 {
     let mut state = match initial_state {
         Some(s) => s,
-        None => get_initial_state(scryer),
+        None => get_initial_state(&scryer).await,
     };
 
     let finished = Term::Atom("finished".to_string());
@@ -34,12 +35,12 @@ where
         .expect("Missing game_phase")
         && steps <= max_steps.unwrap_or(usize::MAX)
     {
-        state = resolve_randomness(scryer, state);
+        state = resolve_randomness(&scryer, state).await;
 
-        state = resolve_next(scryer, state);
+        state = resolve_next(&scryer, state).await;
 
-        let player1_visible = get_visible(scryer, &state, "player1");
-        let mut player1_options = get_player_options(scryer, &state, "player1");
+        let player1_visible = get_visible(&scryer, &state, "player1").await;
+        let mut player1_options = get_player_options(&scryer, &state, "player1").await;
         if !player1_options.is_empty() {
             let player1_choice = player1
                 .send(MoveRequest {
@@ -51,8 +52,8 @@ where
             state.append(&mut player1_options[player1_choice]);
         }
 
-        let player2_visible = get_visible(scryer, &state, "player2");
-        let mut player2_options = get_player_options(scryer, &state, "player2");
+        let player2_visible = get_visible(&scryer, &state, "player2").await;
+        let mut player2_options = get_player_options(&scryer, &state, "player2").await;
         if player2_options.is_empty() {
             player2_options.push(BTreeMap::new());
         }
@@ -70,21 +71,24 @@ where
     state
 }
 
-fn get_initial_state(scryer: &mut ScryerMachine) -> GameState {
+async fn get_initial_state(scryer: &Addr<ScryerActor>) -> GameState {
     let query = r#"init(State)."#;
-    let answer = query_once_binding(scryer, query, "State");
+    let answer = query_once_binding(scryer, query, "State").await;
     match answer {
         Some(term) => from_prolog_assoc(&term),
         None => panic!("Could not get initial state"),
     }
 }
 
-fn resolve_randomness(scryer: &mut ScryerMachine, state: GameState) -> GameState {
+async fn resolve_randomness(scryer: &Addr<ScryerActor>, state: GameState) -> GameState {
     let state_in = to_prolog_assoc(&state, "StateIn");
     let query = format!(r#"{state_in}, random_options(StateIn, StateOut)."#);
 
     let answers: Vec<Term> = scryer
-        .run_query(&query)
+        .send(Query(query))
+        .await
+        .expect("No response in resolve_randomness")
+        .into_iter()
         .filter_map(|answer| match answer {
             Ok(LeafAnswer::LeafAnswer { bindings, .. }) => bindings.get("StateOut").cloned(),
             _ => None,
@@ -99,26 +103,26 @@ fn resolve_randomness(scryer: &mut ScryerMachine, state: GameState) -> GameState
     from_prolog_assoc(&answers[i])
 }
 
-fn resolve_next(scryer: &mut ScryerMachine, state: GameState) -> GameState {
+async fn resolve_next(scryer: &Addr<ScryerActor>, state: GameState) -> GameState {
     let state_in = to_prolog_assoc(&state, "StateIn");
     let query = format!(r#"{state_in}, once(next(StateIn, StateOut))."#);
-    let answer = query_once_binding(scryer, &query, "StateOut");
+    let answer = query_once_binding(scryer, &query, "StateOut").await;
     let x = answer.map(|term| from_prolog_assoc(&term));
     x.unwrap_or(state)
 }
 
-fn get_visible(scryer: &mut ScryerMachine, state: &GameState, player: &str) -> GameState {
+async fn get_visible(scryer: &Addr<ScryerActor>, state: &GameState, player: &str) -> GameState {
     let state_in = to_prolog_assoc(state, "StateIn");
     let query = format!(r#"{state_in}, once(sees({player}, StateIn, VisibleState))."#);
-    let answer = query_once_binding(scryer, &query, "VisibleState");
+    let answer = query_once_binding(scryer, &query, "VisibleState").await;
     match answer {
         Some(term) => from_prolog_assoc(&term),
         None => BTreeMap::new(),
     }
 }
 
-fn get_player_options(
-    scryer: &mut ScryerMachine,
+async fn get_player_options(
+    scryer: &Addr<ScryerActor>,
     state: &GameState,
     player: &str,
 ) -> Vec<GameState> {
@@ -126,7 +130,10 @@ fn get_player_options(
     let query = format!(r#"{state_in}, player_options({player}, StateIn, PartialStateOut)."#,);
 
     scryer
-        .run_query(&query)
+        .send(Query(query))
+        .await
+        .expect("No response in get_player_options")
+        .into_iter()
         .filter_map(|answer| match answer {
             Ok(LeafAnswer::LeafAnswer { bindings, .. }) => {
                 bindings.get("PartialStateOut").map(from_prolog_assoc)

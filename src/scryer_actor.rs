@@ -3,16 +3,15 @@ use scryer_prolog::{LeafAnswer, Machine as ScryerMachine, Term};
 
 #[derive(Debug)]
 pub struct ScryerActor {
-    scryer: ScryerMachine,
+    pub scryer: ScryerMachine,
 }
 impl Actor for ScryerActor {
     type Context = SyncContext<Self>;
 }
 
-
 #[derive(Message)]
 #[rtype(QueryResult)]
-struct Query(String);
+pub struct Query(pub String);
 
 pub type QueryResult = Vec<Result<LeafAnswer, Term>>;
 
@@ -24,10 +23,9 @@ impl Handler<Query> for ScryerActor {
     }
 }
 
-
 #[derive(Message)]
 #[rtype(QueryOnceResult)]
-struct QueryOnce(String);
+pub struct QueryOnce(pub String);
 
 pub type QueryOnceResult = Result<LeafAnswer, Term>;
 
@@ -35,10 +33,12 @@ impl Handler<QueryOnce> for ScryerActor {
     type Result = QueryOnceResult;
 
     fn handle(&mut self, query: QueryOnce, _ctx: &mut SyncContext<Self>) -> Self::Result {
-        self.scryer.run_query(&query.0).next().expect("No result from QueryOnce")
+        self.scryer
+            .run_query(&query.0)
+            .next()
+            .expect("No result from QueryOnce")
     }
 }
-
 
 #[cfg(test)]
 mod test {
