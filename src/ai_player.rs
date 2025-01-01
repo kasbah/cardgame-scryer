@@ -3,10 +3,7 @@ use crate::game_logic::{run_game, GameState};
 use crate::move_request::{MoveChoice, MoveRequest};
 use crate::scryer_actor::{Query, ScryerActor};
 use crate::{random::random_choice, scryer_types::to_prolog};
-use actix::{Actor, Addr, Context, Handler};
-use actix::AsyncContext;
-use actix::prelude::*;
-use actix_async_handler::async_handler;
+use actix::{Actor, Addr, Context, Handler, AtomicResponse, WrapFuture};
 use scryer_prolog::{LeafAnswer, Term};
 use std::collections::BTreeMap;
 
@@ -28,10 +25,20 @@ impl Actor for AiPlayer {
 }
 
 impl Handler<MoveRequest> for AiPlayer {
-    type Result = MoveChoice;
+    type Result = AtomicResponse<Self, MoveChoice>;
 
-    fn handle(&mut self, req: MoveRequest, ctx: &mut Context<Self>) -> Self::Result {
-        0
+    fn handle(&mut self, req: MoveRequest, _ctx: &mut Context<Self>) -> Self::Result {
+        let scryer = self.scryer.clone();
+        let dummy_player = self.dummy_player.clone();
+
+        AtomicResponse::new(
+            Box::pin(
+                async move {
+                    make_ai_move(&scryer, &dummy_player, req.visible_state, req.options).await
+                }
+                .into_actor(self),
+            ),
+        )
     }
 }
 
