@@ -3,7 +3,8 @@ use crate::game_logic::{run_game, GameState};
 use crate::move_request::{MoveChoice, MoveRequest};
 use crate::scryer_actor::{Query, ScryerActor};
 use crate::{random::random_choice, scryer_types::to_prolog};
-use actix::{Actor, Addr, Context, Handler, AtomicResponse, WrapFuture};
+use actix::{Actor, Addr, AtomicResponse, Context, Handler, WrapFuture};
+use futures::future::join_all;
 use scryer_prolog::{LeafAnswer, Term};
 use std::collections::BTreeMap;
 
@@ -48,38 +49,41 @@ async fn make_ai_move(
     visible_state: GameState,
     options: Vec<GameState>,
 ) -> usize {
-    let mut scores = Vec::new();
-    for option in options {
-        let mut score: i128 = 0;
-        for _ in 0..100 {
-            let mut possible_state = get_possible_state(scryer, &visible_state).await;
-            possible_state.extend(option.clone());
-            let next_state = run_game(
-                scryer,
-                dummy_player,
-                dummy_player,
-                Some(possible_state),
-                Some(1),
-            )
-            .await;
-            let deck1 = next_state.get("deck1").unwrap();
-            let deck2 = next_state.get("deck2").unwrap();
-            let win_pile1 = next_state.get("win_pile1").unwrap();
-            let win_pile2 = next_state.get("win_pile2").unwrap();
+    let scores = join_all(options.into_iter().map(move |option| {
+        let visible_state = visible_state.clone();
+        async move {
+            let mut score: i128 = 0;
+            for _ in 0..100 {
+                let mut possible_state = get_possible_state(scryer, &visible_state).await;
+                possible_state.extend(option.clone());
+                let next_state = run_game(
+                    scryer,
+                    dummy_player,
+                    dummy_player,
+                    Some(possible_state),
+                    Some(1),
+                )
+                .await;
+                let deck1 = next_state.get("deck1").unwrap();
+                let deck2 = next_state.get("deck2").unwrap();
+                let win_pile1 = next_state.get("win_pile1").unwrap();
+                let win_pile2 = next_state.get("win_pile2").unwrap();
 
-            let player1_n_cards = match (deck1, win_pile1) {
-                (Term::List(d1), Term::List(w1)) => d1.len() + w1.len(),
-                _ => 0,
-            };
+                let player1_n_cards = match (deck1, win_pile1) {
+                    (Term::List(d1), Term::List(w1)) => d1.len() + w1.len(),
+                    _ => 0,
+                };
 
-            let player2_n_cards = match (deck2, win_pile2) {
-                (Term::List(d2), Term::List(w2)) => d2.len() + w2.len(),
-                _ => 0,
-            };
-            score += player1_n_cards as i128 - player2_n_cards as i128;
+                let player2_n_cards = match (deck2, win_pile2) {
+                    (Term::List(d2), Term::List(w2)) => d2.len() + w2.len(),
+                    _ => 0,
+                };
+                score += player1_n_cards as i128 - player2_n_cards as i128;
+            }
+            score
         }
-        scores.push(score);
-    }
+    }))
+    .await;
     let max = scores.iter().max().unwrap();
     scores.iter().position(|x| x == max).unwrap()
 }
