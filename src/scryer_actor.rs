@@ -1,5 +1,12 @@
 use actix::{Actor, Handler, Message, SyncContext};
-use scryer_prolog::{LeafAnswer, Machine as ScryerMachine, Term};
+use scryer_prolog::{LeafAnswer, Machine as ScryerMachine, MachineBuilder, Term};
+
+pub fn create_scryer_actor() -> ScryerActor {
+    let mut scryer = MachineBuilder::default().build();
+    let file_content = include_str!("logic.pl");
+    scryer.load_module_string("logic", file_content);
+    ScryerActor { scryer }
+}
 
 #[derive(Debug)]
 pub struct ScryerActor {

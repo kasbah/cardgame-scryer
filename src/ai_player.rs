@@ -1,9 +1,11 @@
 use crate::move_request::{MoveChoice, MoveRequest};
 use crate::scryer_actor::ScryerActor;
-use actix::{Actor, Context, Handler};
+use actix::{Actor, Context, Handler, Addr};
 use actix_async_handler::async_handler;
 
-pub struct AiPlayer {}
+pub struct AiPlayer {
+    pub scryer: Addr<ScryerActor>,
+}
 
 impl Actor for AiPlayer {
     type Context = Context<Self>;
