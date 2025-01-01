@@ -1,5 +1,5 @@
-use crate::move_messages::{MoveChoice, MoveRequest};
-use actix::{Actor, Addr, Context, Handler};
+use crate::move_request::{MoveChoice, MoveRequest};
+use actix::{Actor, Context, Handler};
 use actix_async_handler::async_handler;
 
 pub struct HumanPlayer {

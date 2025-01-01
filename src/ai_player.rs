@@ -1,4 +1,4 @@
-use crate::move_messages::{MoveChoice, MoveRequest};
+use crate::move_request::{MoveChoice, MoveRequest};
 use crate::scryer_actor::ScryerActor;
 use actix::{Actor, Context, Handler};
 use actix_async_handler::async_handler;

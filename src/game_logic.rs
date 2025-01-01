@@ -1,4 +1,4 @@
-use crate::move_messages::MoveRequest;
+use crate::move_request::MoveRequest;
 use crate::random::random_choice;
 use crate::scryer_types::{from_prolog_assoc, to_prolog_assoc};
 use crate::scryer_util::query_once_binding;
