@@ -8,7 +8,7 @@ use cardgame::scryer_actor::{create_scryer_actor, ScryerActor};
 async fn main() {
     let scryer_game: Addr<ScryerActor> = SyncArbiter::start(1, create_scryer_actor);
     let scryer_ai: Addr<ScryerActor> = SyncArbiter::start(6, create_scryer_actor);
-    let player1 = create_ai_player(scryer_ai).start();
+    let player1 = create_ai_player(scryer_ai, "player1").start();
     let player2 = HumanPlayer {}.start();
     let final_state = run_game(&scryer_game, &player1, &player2, None, None).await;
     println!("{:?}", final_state);

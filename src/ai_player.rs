@@ -8,15 +8,17 @@ use futures::future::join_all;
 use scryer_prolog::{LeafAnswer, Term};
 use std::collections::BTreeMap;
 
-pub fn create_ai_player(scryer: Addr<ScryerActor>) -> AiPlayer {
+pub fn create_ai_player(scryer: Addr<ScryerActor>, player: &'static str) -> AiPlayer {
     let dummy_player = DummyPlayer {}.start();
     AiPlayer {
+        player,
         scryer,
         dummy_player,
     }
 }
 
 pub struct AiPlayer {
+    pub player: &'static str,
     pub scryer: Addr<ScryerActor>,
     pub dummy_player: Addr<DummyPlayer>,
 }
@@ -31,11 +33,12 @@ impl Handler<MoveRequest> for AiPlayer {
     fn handle(&mut self, req: MoveRequest, _ctx: &mut Context<Self>) -> Self::Result {
         let scryer = self.scryer.clone();
         let dummy_player = self.dummy_player.clone();
+        let player = self.player;
 
         AtomicResponse::new(
             Box::pin(
                 async move {
-                    make_ai_move(&scryer, &dummy_player, req.visible_state, req.options).await
+                    make_ai_move(player, &scryer, &dummy_player, req.visible_state, req.options).await
                 }
                 .into_actor(self),
             ),
@@ -44,6 +47,7 @@ impl Handler<MoveRequest> for AiPlayer {
 }
 
 async fn make_ai_move(
+    player: &str,
     scryer: &Addr<ScryerActor>,
     dummy_player: &Addr<DummyPlayer>,
     visible_state: GameState,
@@ -78,7 +82,12 @@ async fn make_ai_move(
                     (Term::List(d2), Term::List(w2)) => d2.len() + w2.len(),
                     _ => 0,
                 };
-                score += player1_n_cards as i128 - player2_n_cards as i128;
+
+                if player == "player1" {
+                    score += player1_n_cards as i128 - player2_n_cards as i128;
+                } else {
+                    score += player2_n_cards as i128 - player1_n_cards as i128;
+                }
             }
             score
         }
