@@ -1,5 +1,5 @@
-use actix::{Actor, Addr, Handler, Message, SyncArbiter, SyncContext, System};
-use scryer_prolog::{LeafAnswer, Machine as ScryerMachine, MachineBuilder, Term};
+use actix::{Actor, Handler, Message, SyncContext};
+use scryer_prolog::{LeafAnswer, Machine as ScryerMachine, Term};
 
 #[derive(Debug)]
 pub struct ScryerActor {
@@ -43,6 +43,8 @@ impl Handler<QueryOnce> for ScryerActor {
 #[cfg(test)]
 mod test {
     use super::*;
+    use actix::{Addr, SyncArbiter, System};
+    use scryer_prolog::MachineBuilder;
 
     #[test]
     fn test_actor() {
