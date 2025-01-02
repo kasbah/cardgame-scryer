@@ -9,10 +9,6 @@ update_assoc(List, Assoc, AssocOut) :-
   foldl(put_assoc_k_v, List, Assoc, AssocOut).
 
 
-role(player1).
-role(player2).
-
-
 % card(Id,                   Distance,    Temp, OrbitTime,    Radius,   Mass,      EarthSimilarity)
 card(c_mercury,              97,           350,  8800,        38300,    5500,      43).
 card(c_venus,                44,           480,  22470,       94900,    81500,     43).
@@ -45,12 +41,10 @@ card(c_psr_j1719_1438_b,     40000000000,  1000, 9,           400000,   33000000
 card(c_psr_b1620_26_b,       58710000000,  -201, 2483700,     1293400,  79500000,  13).
 card(c_ogle_2005_blg_390l_b, 220000000000, -220, 328725,      221000,   550000,    15).
 
-
 all_cards(Cards) :-
   setof(card(Id, Distance, Temp, OrbitTime, Radius, Mass, EarthSimilarity),
         card(Id, Distance, Temp, OrbitTime, Radius, Mass, EarthSimilarity),
         Cards).
-
 
 a_card(Card) :-
   all_cards(Cards),
@@ -265,12 +259,6 @@ next(GameStateIn, GameStateOut) :-
   \+ length(Deck1, 0),
   \+ length(Deck2, 0),
   put_assoc(game_phase, GameStateIn, playing, GameStateOut).
-
-
-a_card_but_not(NotCard, PossibleCard) :-
-  a_card(Card),
-  Card \= NotCard,
-  PossibleCard = possible(Card).
 
 
 any_card(Card) :-
