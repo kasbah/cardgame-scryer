@@ -1,4 +1,4 @@
-# Card Game using Scryer Prolog
+# A Card Game Using Scryer Prolog
 
 A card game prototype using [Scryer Prolog](https://scryer.pl) as a library in Rust.
 
