@@ -107,9 +107,8 @@ pub fn from_prolog_assoc_recursive(term: &Term) -> TermOrAssoc {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::scryer_util::query_once_binding;
     use dashu::Integer;
-    use scryer_prolog::MachineBuilder;
+    use scryer_prolog::{LeafAnswer, MachineBuilder};
 
     #[test]
     fn test_to_prolog1() {
@@ -301,7 +300,12 @@ mod test {
         let query = r#"
             list_to_assoc([a-b, c-[d(x), e(x)], f-1, g-(h-i), j-k], X).
         "#;
-        let term = query_once_binding(&mut scryer, query, "X").unwrap();
+        let mut answers = scryer.run_query(query);
+        let answer = answers.next().unwrap();
+        let term = match answer {
+            Ok(LeafAnswer::LeafAnswer { bindings, .. }) => bindings.get("X").cloned().unwrap(),
+            _ => panic!("Unexpected answer: {:?}", answer),
+        };
         let result = from_prolog_assoc(&term);
         assert_eq!(
             result,
@@ -459,7 +463,12 @@ mod test {
         let query = r#"
             list_to_assoc([a-b, c-[d(x), e(x)], f-1, g-(h-i), j-k], X).
         "#;
-        let term = query_once_binding(&mut scryer, query, "X").unwrap();
+        let mut answers = scryer.run_query(query);
+        let answer = answers.next().unwrap();
+        let term = match answer {
+            Ok(LeafAnswer::LeafAnswer { bindings, .. }) => bindings.get("X").cloned().unwrap(),
+            _ => panic!("Unexpected answer: {:?}", answer),
+        };
         let result = from_prolog_assoc_recursive(&term);
         assert_eq!(
             result,
